@@ -1,0 +1,2690 @@
+!function(t, e) {
+    "object" == typeof exports && "object" == typeof module ? module.exports = e() : "function" == typeof define && define.amd ? define([], e) : "object" == typeof exports ? exports.MSP2Client = e() : t.MSP2Client = e()
+}(this, ( () => ( () => {
+    "use strict";
+    var t = {
+        d: (e, n) => {
+            for (var i in n)
+                t.o(n, i) && !t.o(e, i) && Object.defineProperty(e, i, {
+                    enumerable: !0,
+                    get: n[i]
+                })
+        }
+        ,
+        o: (t, e) => Object.prototype.hasOwnProperty.call(t, e)
+    }
+      , e = {};
+    function n(t, e, n) {
+        return (e = function(t) {
+            var e = function(t) {
+                if ("object" != typeof t || !t)
+                    return t;
+                var e = t[Symbol.toPrimitive];
+                if (void 0 !== e) {
+                    var n = e.call(t, "string");
+                    if ("object" != typeof n)
+                        return n;
+                    throw new TypeError("@@toPrimitive must return a primitive value.")
+                }
+                return String(t)
+            }(t);
+            return "symbol" == typeof e ? e : e + ""
+        }(e))in t ? Object.defineProperty(t, e, {
+            value: n,
+            enumerable: !0,
+            configurable: !0,
+            writable: !0
+        }) : t[e] = n,
+        t
+    }
+    t.d(e, {
+        default: () => _n
+    });
+    class i {
+    }
+    var o, s = "msp2_auth_token", r = {
+        t: window.localStorage
+    }, a = {
+        t: new TextDecoder
+    };
+    function c(t, e, n) {
+        return (e = function(t) {
+            var e = function(t) {
+                if ("object" != typeof t || !t)
+                    return t;
+                var e = t[Symbol.toPrimitive];
+                if (void 0 !== e) {
+                    var n = e.call(t, "string");
+                    if ("object" != typeof n)
+                        return n;
+                    throw new TypeError("@@toPrimitive must return a primitive value.")
+                }
+                return String(t)
+            }(t);
+            return "symbol" == typeof e ? e : e + ""
+        }(e))in t ? Object.defineProperty(t, e, {
+            value: n,
+            enumerable: !0,
+            configurable: !0,
+            writable: !0
+        }) : t[e] = n,
+        t
+    }
+    function d(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function h(t, e) {
+        return t.get(u(t, e))
+    }
+    function u(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    n(i, "getUserData", ( () => {
+        const [t,e] = [t => JSON.parse(a.t.decode(Uint8Array.from(atob(t), (t => t.charCodeAt(0))))), null];
+        return n => {
+            try {
+                const {profileId: e, name: i} = t(n.split(".")[1]);
+                return {
+                    profileId: e,
+                    name: i
+                }
+            } catch {
+                return e
+            }
+        }
+    }
+    )()),
+    n(i, "getToken", ( () => r.t.getItem(s))),
+    n(i, "saveToken", (t => t && r.t.setItem(s, t))),
+    n(i, "isValidToken", (t => !!(t?.length >>> 0)));
+    var p = new WeakMap
+      , l = new WeakMap
+      , m = new WeakMap;
+    class g {
+        constructor() {
+            d(this, p, !1),
+            d(this, l, {
+                s: "https://umami.msp2.lol/script.js",
+                i: "511ee3e4-ed45-4e55-9931-986040b1b070"
+            }),
+            d(this, m, ( () => {
+                if (h(p, this))
+                    return;
+                const t = document.createElement("script");
+                Object.assign(t, {
+                    src: h(l, this).s,
+                    defer: !0,
+                    onload: () => function(t, e, n) {
+                        return t.set(u(t, e), n),
+                        n
+                    }(p, this, !0)
+                }),
+                t.setAttribute("data-website-id", h(l, this).i),
+                document.head.appendChild(t)
+            }
+            )),
+            c(this, "track", ( (t, e) => window.umami?.track(t, e))),
+            h(m, this).call(this)
+        }
+    }
+    o = g;
+    var f, w = {
+        t: void 0
+    };
+    function b(t, e, n) {
+        return (e = function(t) {
+            var e = function(t) {
+                if ("object" != typeof t || !t)
+                    return t;
+                var e = t[Symbol.toPrimitive];
+                if (void 0 !== e) {
+                    var n = e.call(t, "string");
+                    if ("object" != typeof n)
+                        return n;
+                    throw new TypeError("@@toPrimitive must return a primitive value.")
+                }
+                return String(t)
+            }(t);
+            return "symbol" == typeof e ? e : e + ""
+        }(e))in t ? Object.defineProperty(t, e, {
+            value: n,
+            enumerable: !0,
+            configurable: !0,
+            writable: !0
+        }) : t[e] = n,
+        t
+    }
+    function v(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function y(t, e) {
+        return t.get(function(t, e, n) {
+            if ("function" == typeof t ? t === e : t.has(e))
+                return arguments.length < 3 ? e : n;
+            throw new TypeError("Private element is not present on this object")
+        }(t, e))
+    }
+    c(g, "getInstance", ( () => w.t ?? (w.t = new o)));
+    var x = new WeakMap
+      , M = new WeakMap
+      , k = new WeakMap
+      , I = new WeakMap
+      , S = new WeakMap
+      , j = new WeakMap;
+    class A {
+        constructor() {
+            if (v(this, x, new Set(["google-analytics.com", "region1.analytics.google.com", "analytics.eu.moviestarplanet.app", "www.google-analytics.com"])),
+            v(this, M, new Map),
+            v(this, k, new Map),
+            v(this, I, {
+                h: {
+                    "content-type": "application/json",
+                    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    accept: "application/json, text/plain, */*",
+                    "accept-language": "en-US,en;q=0.9",
+                    origin: "https://www.moviestarplanet.com",
+                    referer: "https://www.moviestarplanet.com/",
+                    "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": '"Windows"',
+                    "sec-fetch-dest": "empty",
+                    "sec-fetch-mode": "cors",
+                    "sec-fetch-site": "cross-site"
+                }
+            }),
+            v(this, S, ( () => {
+                const t = XMLHttpRequest.prototype
+                  , e = window.fetch;
+                var n;
+                t.open = (n = t.open,
+                function() {
+                    for (var t = arguments.length, e = new Array(t), i = 0; i < t; i++)
+                        e[i] = arguments[i];
+                    return y(j, this).call(this, e[1]) ? void this.abort() : n.apply(this, e)
+                }
+                ),
+                Object.defineProperty(window, "fetch", {
+                    value: function(t, n) {
+                        return y(j, this).call(this, t) ? Promise.resolve(new Response(null,{
+                            status: 403
+                        })) : e.call(window, t, n)
+                    }
+                    .bind(this),
+                    writable: !0
+                })
+            }
+            )),
+            v(this, j, (t => {
+                if (y(M, this).has(t))
+                    return y(M, this).get(t);
+                try {
+                    const e = y(x, this).has(new URL(t).hostname);
+                    return y(M, this).set(t, e),
+                    e
+                } catch {
+                    return !1
+                }
+            }
+            )),
+            b(this, "getHeaders", (t => {
+                const e = t || "";
+                if (y(k, this).has(e))
+                    return y(k, this).get(e);
+                const n = {
+                    ...y(I, this).h,
+                    authorization: t ? `Bearer ${t}` : ""
+                };
+                return Object.freeze(n),
+                y(k, this).set(e, n),
+                n
+            }
+            )),
+            b(this, "delay", (function() {
+                let t = arguments.length > 0 && void 0 !== arguments[0] ? arguments[0] : 500
+                  , e = arguments.length > 1 && void 0 !== arguments[1] ? arguments[1] : 1500;
+                return new Promise((n => setTimeout(n, ~~(Math.random() * (e - t + 1)) + t)))
+            }
+            )),
+            W.t)
+                return W.t;
+            W.t = this,
+            y(S, this).call(this)
+        }
+    }
+    f = A;
+    var W = {
+        t: void 0
+    };
+    function C(t, e, n) {
+        T(t, e),
+        e.set(t, n)
+    }
+    function T(t, e) {
+        if (e.has(t))
+            throw new TypeError("Cannot initialize the same private elements twice on an object")
+    }
+    function z(t, e) {
+        return t.get(E(t, e))
+    }
+    function D(t, e, n) {
+        return t.set(E(t, e), n),
+        n
+    }
+    function E(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    b(A, "getInstance", ( () => W.t ?? new f));
+    var N = new WeakMap
+      , P = new WeakMap
+      , $ = new WeakMap
+      , O = new WeakMap
+      , _ = new WeakMap
+      , L = new WeakMap
+      , J = new WeakMap
+      , U = new WeakMap
+      , G = new WeakMap
+      , B = new WeakSet;
+    class R {
+        constructor() {
+            var t;
+            T(this, t = B),
+            t.add(this),
+            C(this, N, !0),
+            C(this, P, void 0),
+            C(this, $, void 0),
+            C(this, O, !1),
+            C(this, _, new Set),
+            C(this, L, void 0),
+            C(this, J, void 0),
+            C(this, U, []),
+            C(this, G, !1),
+            D(P, this, g.getInstance()),
+            D($, this, A.getInstance()),
+            D(L, this, window.fetch),
+            D(J, this, window.WebSocket),
+            this.initialize()
+        }
+        initialize() {
+            "undefined" != typeof window && (this.interceptFetchRequests(),
+            this.interceptWebSocket())
+        }
+        interceptFetchRequests() {
+            var t = this;
+            window.fetch = async function() {
+                for (var e = arguments.length, n = new Array(e), i = 0; i < e; i++)
+                    n[i] = arguments[i];
+                const [o,s] = n;
+                try {
+                    if (s?.headers && E(B, t, F).call(t, s.headers),
+                    E(B, t, Z).call(t, o) && z(N, t))
+                        return E(B, t, q).call(t, o, s, n)
+                } catch (t) {}
+                return z(L, t).apply(window, n)
+            }
+        }
+        getToken() {
+            return i.getToken() || null
+        }
+        async resetAvatar() {
+            try {
+                const t = this.getToken()
+                  , e = this.getProfileId();
+                if (!t || !e)
+                    throw new Error("Missing authentication");
+                const n = E(B, this, Y).call(this, t)
+                  , i = z($, this).getHeaders(t)
+                  , o = await fetch(`https://${n}/profileattributes/v1/profiles/${e}/games/j68d/attributes`, {
+                    headers: i
+                });
+                if (!o.ok)
+                    throw new Error(`Failed to get avatar attributes: ${o.status}`);
+                const s = await o.json();
+                if (!s?.avatarId)
+                    throw new Error("No avatar ID found");
+                const r = await fetch("https://api.allorigins.win/raw?url=" + encodeURIComponent("https://github.com/mwarcc/msp2guis/raw/refs/heads/main/default.bson"));
+                if (!r.ok)
+                    throw new Error(`Failed to get default avatar: ${r.status}`);
+                const a = await r.arrayBuffer()
+                  , c = await fetch(`https://${n}/profilegeneratedcontent/v2/profiles/${e}/games/j68d/avatars/${s.avatarId}`, {
+                    method: "PUT",
+                    headers: {
+                        ...i,
+                        "content-type": "application/bson",
+                        signature: "2eA/CteuR/k2YUipj3YflkjpxJLRoUlSbNNY8xpwo6S8="
+                    },
+                    body: a
+                });
+                if (!c.ok)
+                    throw new Error(`Avatar update failed: ${c.status}`)
+            } catch (t) {}
+        }
+        async processQuestDefinitions(t) {
+            if (!z(O, this) && z(N, this)) {
+                D(O, this, !0);
+                try {
+                    const e = this.getToken()
+                      , n = this.getProfileId();
+                    if (!e || !n)
+                        return;
+                    const i = E(B, this, Y).call(this, e)
+                      , o = z($, this).getHeaders(e)
+                      , s = [];
+                    E(B, this, X).call(this, t, s, i, n, o),
+                    s.length > 0 && (await E(B, this, K).call(this, s),
+                    await Promise.all([E(B, this, tt).call(this, n, e), E(B, this, et).call(this, n, e)]),
+                    z(P, this).track("Quests Completed", {
+                        count: s.length
+                    }))
+                } catch (t) {} finally {
+                    D(O, this, !1)
+                }
+            }
+        }
+        getProfileId() {
+            const t = this.getToken();
+            if (!t)
+                return null;
+            try {
+                return JSON.parse(atob(t.split(".")[1])).profileId
+            } catch (t) {
+                return null
+            }
+        }
+        interceptWebSocket() {
+            const t = this;
+            window.WebSocket = function() {
+                for (var e = arguments.length, n = new Array(e), i = 0; i < e; i++)
+                    n[i] = arguments[i];
+                const o = new (z(J, t))(...n);
+                o.addEventListener("message", (e => {
+                    z(N, t) && "string" == typeof e.data && t.handleQuizMessage(o, e.data)
+                }
+                ));
+                const s = o.send;
+                return o.send = function(e) {
+                    return z(N, t) && "string" == typeof e && E(B, t, nt).call(t, e, o),
+                    s.apply(this, arguments)
+                }
+                ,
+                o
+            }
+            ,
+            Object.assign(window.WebSocket, z(J, this))
+        }
+        toggle() {
+            return D(N, this, !z(N, this)),
+            z(N, this)
+        }
+        isEnabled() {
+            return z(N, this)
+        }
+        cleanup() {
+            "undefined" != typeof window && (window.fetch = z(L, this),
+            window.WebSocket = z(J, this)),
+            D(U, this, []),
+            D(G, this, !1),
+            D(O, this, !1)
+        }
+    }
+    function Y(t) {
+        if (!t)
+            return "eu.mspapis.com";
+        const e = i.getUserData(t)
+          , n = e?.name?.split("|")[0];
+        return ["US", "CA"].includes(n) ? "us.mspapis.com" : "eu.mspapis.com"
+    }
+    function H(t) {
+        if (!t)
+            return st.t;
+        const e = i.getUserData(t)
+          , n = e?.name?.split("|")[0];
+        return ["US", "CA"].includes(n) ? rt.t : st.t
+    }
+    function F(t) {
+        const e = Object.entries(t).find((t => {
+            let[e] = t;
+            return "authorization" === e.toLowerCase()
+        }
+        ))?.[1];
+        if (e?.startsWith("Bearer ")) {
+            const t = E(B, this, V).call(this, e);
+            i.isValidToken(t) && i.saveToken(t)
+        }
+    }
+    function Z(t) {
+        return t.includes("games/j68d/definitions?questType=") || t.includes("games/j68d/quests?questType=")
+    }
+    async function q(t, e, n) {
+        const i = await z(L, this).apply(window, n)
+          , o = await i.clone().json();
+        if ((o.questDefinitions?.length || o.quests?.length) && !z(O, this)) {
+            const t = (o.questDefinitions || o.quests || []).filter((t => t.definitionId && !z(_, this).has(t.definitionId)));
+            t.length > 0 && (z(U, this).push(...t),
+            z(G, this) || (D(G, this, !0),
+            setTimeout(( () => E(B, this, Q).call(this)), it.t)))
+        }
+        return i
+    }
+    function Q() {
+        z(U, this).length > 0 && (z(P, this).track("Processing New Quests", {
+            count: z(U, this).length
+        }),
+        this.processQuestDefinitions(z(U, this)),
+        D(U, this, [])),
+        D(G, this, !1)
+    }
+    function V(t) {
+        return t.replace("Bearer ", "").trim()
+    }
+    function X(t, e, n, i, o) {
+        const s = t => {
+            const r = t.definitionId;
+            if (!r || z(_, this).has(r))
+                return;
+            const a = r.toLowerCase().includes("gift") ? 4 : 1;
+            for (let t = 0; t < a; t++)
+                e.push({
+                    url: `https://${n}/quests/v2/profiles/${i}/games/j68d/quests/${r}/progress`,
+                    method: "PUT",
+                    headers: o,
+                    body: JSON.stringify({
+                        progress: 1
+                    })
+                });
+            z(_, this).add(r),
+            t.children?.length && t.children.forEach(s)
+        }
+        ;
+        t.forEach(s)
+    }
+    async function K(t) {
+        for (let e = 0; e < t.length; e += ot.t) {
+            const n = t.slice(e, e + ot.t);
+            await Promise.all(n.map((t => fetch(t.url, {
+                method: t.method,
+                headers: t.headers,
+                body: t.body
+            }).catch((t => {}
+            ))))),
+            e + ot.t < t.length && await new Promise((t => setTimeout(t, 300)))
+        }
+    }
+    async function tt(t, e) {
+        const n = E(B, this, Y).call(this, e)
+          , i = z($, this).getHeaders(e)
+          , o = [{
+            url: `https://${n}/quests/v2/profiles/${t}/games/j68d/quests/random_daily_change_profile_bg/state`,
+            body: JSON.stringify({
+                state: "Complete"
+            })
+        }, ...Array(10).fill({
+            url: `https://${n}/quests/v2/profiles/${t}/games/j68d/quests/daily_pet_pets/state`,
+            body: JSON.stringify({
+                state: "Complete"
+            })
+        }), ...Array(4).fill({
+            url: `https://${n}/timelimitedrewards/v2/profiles/${t}/games/j68d/rewards/daily_pickup`,
+            body: JSON.stringify({
+                state: "Claimed"
+            })
+        })];
+        await Promise.all(o.map((t => fetch(t.url, {
+            method: "PUT",
+            headers: i,
+            body: t.body
+        }).catch((t => {}
+        )))))
+    }
+    async function et(t, e) {
+        const n = E(B, this, Y).call(this, e)
+          , i = z($, this).getHeaders(e)
+          , o = JSON.stringify({
+            profileId: t,
+            gameId: "j68d"
+        })
+          , s = E(B, this, H).call(this, e);
+        for (let t = 0; t < s.length; t += ot.t) {
+            const e = s.slice(t, t + ot.t);
+            await Promise.all(e.map((t => fetch(`https://${n}/pets/v1/pets/${t}/interactions`, {
+                method: "POST",
+                headers: i,
+                body: o
+            }).catch((t => {}
+            ))))),
+            t + ot.t < s.length && await new Promise((t => setTimeout(t, 200)))
+        }
+    }
+    function nt(t, e) {
+        ['42["chatv2:send",{"message":"avreset"}]', '42["chatv2:send",{"message":"a­v­r­e­s­e­t"}]'].includes(t) && (z(P, this).track("Avatar Reset"),
+        this.resetAvatar())
+    }
+    var it = {
+        t: 1e4
+    }
+      , ot = {
+        t: 5
+    }
+      , st = {
+        t: ["cf0589ffe9ed45369d70dcaaa9aa1db2", "6ca07ffa53e3468598e6f2a2e0d20ded", "cf42a511688e49f795e387d43a78c758", "d92645e7672142028f2731aeda6e8e6f", "39e585c334834622ab69fa636068d278", "7e4f2d790d5c4b3e808f3737b30f6458", "c568275ccfbb482486d54942542fe22f", "e79da67391154e56ad381960ca344b54", "3924865e60fe426eb2862fd9a7a813b5", "d2d9a0623b24dde83142b8951ea3a79", "8a05904fe4c042009f60ea0e3958832e"]
+    }
+      , rt = {
+        t: ["c2e1adda81be4c79af951760d95777f4", "c582f5c2ff8144dcbc5ee04b234f40fe", "4e5e437fd1f7420893b012c0757565fd", "fe4b1ee6448045de9d37eec3fe7486bc", "bdc6f675cc6047088a5b623753963459", "c0cef46f2b3c4887b3224fc3f91376d3", "6b2729ddc59a475dab5a64f07f585264", "8d464a5ef2ba4b8cadbbe3c82b758ee7", "0e07bbf665b447ae92ed5a7393ca31ff", "65dcdc6e949a439e93bdecf14d8c0e1b"]
+    };
+    function at(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function ct(t, e) {
+        return t.get(ht(t, e))
+    }
+    function dt(t, e, n) {
+        return t.set(ht(t, e), n),
+        n
+    }
+    function ht(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var ut = new WeakMap
+      , pt = new WeakMap
+      , lt = new WeakMap
+      , mt = new WeakMap;
+    class gt {
+        constructor() {
+            at(this, ut, !0),
+            at(this, pt, new Map),
+            at(this, lt, null),
+            at(this, mt, void 0),
+            dt(mt, this, g.getInstance()),
+            this.initialize()
+        }
+        async initialize() {
+            try {
+                const t = await fetch("https://raw.githubusercontent.com/mwarcc/ss/refs/heads/main/quiz.json");
+                if (!t.ok)
+                    throw new Error(`HTTP error! Status: ${t.status}`);
+                const e = await t.json();
+                Object.entries(e).forEach((t => {
+                    let[e,n] = t;
+                    ct(pt, this).set(e, n)
+                }
+                )),
+                this.interceptWebSocket()
+            } catch (t) {}
+        }
+        interceptWebSocket() {
+            const t = window.WebSocket
+              , e = this;
+            window.WebSocket = function() {
+                for (var n = arguments.length, i = new Array(n), o = 0; o < n; o++)
+                    i[o] = arguments[o];
+                const s = new t(...i);
+                return s.addEventListener("message", (t => {
+                    ct(ut, e) && e.handleMessage(s, t.data)
+                }
+                )),
+                s
+            }
+            ,
+            Object.assign(window.WebSocket, t)
+        }
+        handleMessage(t, e) {
+            if (e.startsWith('40{"jwt":"') || e.match(/^\d+$/))
+                return;
+            const n = e.startsWith("42[") ? e.substring(2) : e;
+            try {
+                const [e,i] = JSON.parse(n);
+                this.processPayload(t, i)
+            } catch (t) {}
+        }
+        processPayload(t, e) {
+            const {messageType: n, messageContent: i} = e;
+            switch (n) {
+            case "game:state":
+                ct(mt, this).track("Quiz State"),
+                this.handleGameState(t, i);
+                break;
+            case "quiz:chal":
+                ct(mt, this).track("Quiz Challenge"),
+                this.handleQuizChallenge(i);
+                break;
+            case "quiz:reveal":
+                ct(mt, this).track("Quiz Reveal"),
+                this.handleQuizReveal(i)
+            }
+        }
+        handleGameState(t, e) {
+            if ("waiting_for_answer" === e.newState) {
+                ct(mt, this).track("Waiting For Quiz Answer");
+                const e = ct(lt, this) && ct(pt, this).get(ct(lt, this))?.correctAnswer ? ct(pt, this).get(ct(lt, this)).correctAnswer : Math.floor(3 * Math.random()) + 1;
+                t.send(`42${JSON.stringify(["quiz:answer", {
+                    answer: e
+                }])}`)
+            }
+        }
+        handleQuizChallenge(t) {
+            let {question: e, answers: n} = t;
+            e && n && (dt(lt, this, e),
+            ct(pt, this).has(e) || ct(pt, this).set(e, {
+                answers: n,
+                correctAnswer: null
+            }))
+        }
+        handleQuizReveal(t) {
+            let {correctAnswer: e} = t;
+            if (ct(lt, this)) {
+                const t = ct(pt, this).get(ct(lt, this));
+                t && ct(pt, this).set(ct(lt, this), {
+                    ...t,
+                    correctAnswer: e
+                })
+            }
+        }
+        toggle() {
+            dt(ut, this, !ct(ut, this)),
+            ct(mt, this).track("Auto Quiz Toggle")
+        }
+    }
+    function ft(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function wt(t, e) {
+        return t.get(vt(t, e))
+    }
+    function bt(t, e, n) {
+        return t.set(vt(t, e), n),
+        n
+    }
+    function vt(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var yt = new WeakMap
+      , xt = new WeakMap
+      , Mt = new WeakMap
+      , kt = new WeakMap
+      , It = new WeakMap;
+    class St {
+        constructor() {
+            ft(this, yt, !0),
+            ft(this, xt, void 0),
+            ft(this, Mt, /curatedcontentitemtemplates\/v2\/item-templates\//),
+            ft(this, kt, "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"),
+            ft(this, It, void 0),
+            bt(xt, this, g.getInstance()),
+            bt(It, this, window.fetch),
+            this.initialize(),
+            this.setupShortcut()
+        }
+        initialize() {
+            var t = this;
+            window.fetch = async function() {
+                for (var e = arguments.length, n = new Array(e), i = 0; i < e; i++)
+                    n[i] = arguments[i];
+                const o = n[0];
+                return wt(yt, t) && wt(Mt, t).test(o) ? (wt(xt, t).track("ItemLayeringService Called"),
+                t.handleFetch(wt(It, t), ...n)) : wt(It, t).apply(window, n)
+            }
+        }
+        async handleFetch(t) {
+            for (var e = arguments.length, n = new Array(e > 1 ? e - 1 : 0), i = 1; i < e; i++)
+                n[i - 1] = arguments[i];
+            try {
+                const e = await t.apply(window, n)
+                  , i = await e.clone().json();
+                return this.processData(i),
+                new Response(JSON.stringify(i),{
+                    status: 200,
+                    statusText: "OK",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                })
+            } catch (e) {
+                return t.apply(window, n)
+            }
+        }
+        processData(t) {
+            t.forEach((t => {
+                t.tags?.forEach((t => {
+                    t.resourceIdentifiers?.forEach((t => t.key = null))
+                }
+                )),
+                t.additionalData?.MSP2Data && (t.additionalData.MSP2Data.Type = null)
+            }
+            ))
+        }
+        generateRandomString() {
+            let t = arguments.length > 0 && void 0 !== arguments[0] ? arguments[0] : 10;
+            return Array.from({
+                length: t
+            }, ( () => wt(kt, this)[~~(Math.random() * wt(kt, this).length)])).join("")
+        }
+        setupShortcut() {
+            window.addEventListener("keydown", (t => {
+                t.shiftKey && /^[aA]$/.test(t.key) && this.toggle()
+            }
+            ))
+        }
+        toggle() {
+            bt(yt, this, !wt(yt, this)),
+            wt(xt, this).track("ItemLayeringService " + (wt(yt, this) ? "enabled" : "disabled"))
+        }
+        restore() {
+            bt(yt, this, !1),
+            window.fetch = wt(It, this)
+        }
+    }
+    function jt(t, e, n) {
+        return (e = function(t) {
+            var e = function(t) {
+                if ("object" != typeof t || !t)
+                    return t;
+                var e = t[Symbol.toPrimitive];
+                if (void 0 !== e) {
+                    var n = e.call(t, "string");
+                    if ("object" != typeof n)
+                        return n;
+                    throw new TypeError("@@toPrimitive must return a primitive value.")
+                }
+                return String(t)
+            }(t);
+            return "symbol" == typeof e ? e : e + ""
+        }(e))in t ? Object.defineProperty(t, e, {
+            value: n,
+            enumerable: !0,
+            configurable: !0,
+            writable: !0
+        }) : t[e] = n,
+        t
+    }
+    function At(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function Wt(t, e, n) {
+        return t.set(Tt(t, e), n),
+        n
+    }
+    function Ct(t, e) {
+        return t.get(Tt(t, e))
+    }
+    function Tt(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var zt = new WeakMap
+      , Dt = new WeakMap
+      , Et = new WeakMap
+      , Nt = new WeakMap
+      , Pt = new WeakMap
+      , $t = new WeakMap
+      , Ot = new WeakMap
+      , _t = new WeakMap
+      , Lt = new WeakMap
+      , Jt = new WeakMap
+      , Ut = new WeakMap
+      , Gt = new WeakMap;
+    class Bt {
+        constructor() {
+            var t = this;
+            At(this, zt, !0),
+            At(this, Dt, {
+                d: !1
+            }),
+            At(this, Et, g.getInstance()),
+            At(this, Nt, window.fetch),
+            At(this, Pt, null),
+            At(this, $t, {
+                b: "https://api.msp2cheats.eu/purchase",
+                x: "https://api.xerus.lol/listings"
+            }),
+            At(this, Ot, ( () => Ct(Ut, this).call(this))),
+            At(this, _t, (t => {
+                if (!Ct(zt, this) || "string" != typeof t)
+                    return !1;
+                if (t.includes("/profileinventory/v1/profiles/") && t.includes("/games/j68d/inventory/items"))
+                    return !0;
+                if (t === Ct($t, this).b)
+                    return !0;
+                const e = /(?:eu|us)\.mspapis\.com\/shop(?:inventory|purchase)\/v1\/(?:shops|games\/j68d\/profiles)/.test(t)
+                  , n = /\/(shops\/(?:6|13)\/tags)/.test(t);
+                return e && !n
+            }
+            )),
+            At(this, Lt, ( () => "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (function(t) {
+                const e = 16 * Math.random() | 0;
+                return ("x" === t ? e : 3 & e | 8).toString(16)
+            }
+            )))),
+            At(this, Jt, (t => {
+                if (!Ct(zt, this))
+                    return t;
+                try {
+                    const e = new URL(t);
+                    if (e.pathname.includes("/items/purchase") || e.pathname.includes("/shop/purchase"))
+                        return Ct($t, this).b;
+                    if (Ct(Dt, this).d && e.pathname.includes("/shopinventory")) {
+                        const t = new URLSearchParams(e.search)
+                          , n = new URL(Ct($t, this).x);
+                        return [...t].filter((t => {
+                            let[e] = t;
+                            return !/auth/i.test(e)
+                        }
+                        )).filter((t => {
+                            let[e,n] = t;
+                            return "tag" !== e || "60" !== n && "61" !== n
+                        }
+                        )).forEach((t => {
+                            let[e,i] = t;
+                            return n.searchParams.append(e, i)
+                        }
+                        )),
+                        n.toString()
+                    }
+                    return t
+                } catch {
+                    return t
+                }
+            }
+            )),
+            At(this, Ut, ( () => {
+                window.fetch = async function() {
+                    for (var e = arguments.length, n = new Array(e), i = 0; i < e; i++)
+                        n[i] = arguments[i];
+                    const [o,s] = n;
+                    if (!Ct(_t, t).call(t, o))
+                        return Ct(Nt, t).apply(window, n);
+                    const r = Ct(Jt, t).call(t, o);
+                    return r === Ct($t, t).b ? Ct(Gt, t).call(t, r, s ?? {}) : Ct(Nt, t).call(t, r, s ?? {})
+                }
+            }
+            )),
+            At(this, Gt, (async (t, e) => {
+                if (!Ct(zt, this))
+                    return Ct(Nt, this).call(this, t, e);
+                try {
+                    const n = await Ct(Nt, this).call(this, t, e)
+                      , o = await n.json()
+                      , s = "purchaseList"
+                      , r = JSON.parse(localStorage.getItem(s) || "[]");
+                    r.push(...o),
+                    localStorage.setItem(s, JSON.stringify(r.slice(-100)));
+                    const a = i.getUserData(window.msp2Client?.getToken());
+                    return a && Ct(Et, this).track("Bought items from shop", a),
+                    new Response(JSON.stringify(o),{
+                        status: 200,
+                        statusText: "OK",
+                        headers: {
+                            "Content-Type": "application/json"
+                        }
+                    })
+                } catch (n) {
+                    return Ct(Nt, this).call(this, t, e)
+                }
+            }
+            )),
+            jt(this, "setEnabled", (t => {
+                let {diamondPacks: e} = t;
+                Wt(Dt, this, {
+                    d: e
+                }),
+                Wt(zt, this, !0)
+            }
+            )),
+            jt(this, "toggle", ( () => {
+                Wt(zt, this, !Ct(zt, this)),
+                Ct(zt, this) && Ct(Pt, this) && Ct(Pt, this).restore()
+            }
+            )),
+            jt(this, "restore", ( () => {
+                Wt(zt, this, !1),
+                window.fetch = Ct(Nt, this)
+            }
+            )),
+            Ct(Ot, this).call(this)
+        }
+        setDiamondShopService(t) {
+            Wt(Pt, this, t)
+        }
+    }
+    function Rt(t, e, n) {
+        return (e = function(t) {
+            var e = function(t) {
+                if ("object" != typeof t || !t)
+                    return t;
+                var e = t[Symbol.toPrimitive];
+                if (void 0 !== e) {
+                    var n = e.call(t, "string");
+                    if ("object" != typeof n)
+                        return n;
+                    throw new TypeError("@@toPrimitive must return a primitive value.")
+                }
+                return String(t)
+            }(t);
+            return "symbol" == typeof e ? e : e + ""
+        }(e))in t ? Object.defineProperty(t, e, {
+            value: n,
+            enumerable: !0,
+            configurable: !0,
+            writable: !0
+        }) : t[e] = n,
+        t
+    }
+    function Yt(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function Ht(t, e) {
+        return t.get(qt(t, e))
+    }
+    function Ft(t, e, n) {
+        e || (e = []);
+        var i = e.length++;
+        return Object.defineProperty({}, "t", {
+            set: function(o) {
+                e[i] = o,
+                t.apply(n, e)
+            }
+        })
+    }
+    function Zt(t, e, n) {
+        return t.set(qt(t, e), n),
+        n
+    }
+    function qt(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var Qt = new WeakMap
+      , Vt = new WeakMap
+      , Xt = new WeakMap
+      , Kt = new WeakMap
+      , te = new WeakMap
+      , ee = new WeakMap
+      , ne = new WeakMap
+      , ie = new WeakMap;
+    class oe {
+        constructor() {
+            var t = this;
+            Yt(this, Qt, !0),
+            Yt(this, Vt, void 0),
+            Yt(this, Xt, void 0),
+            Yt(this, Kt, void 0),
+            Yt(this, te, "­"),
+            Yt(this, ee, ( () => {
+                Ht(ne, this).call(this),
+                Ht(ie, this).call(this)
+            }
+            )),
+            Yt(this, ne, ( () => {
+                window.fetch = async (t, e) => {
+                    if (!Ht(Qt, this))
+                        return Ht(Xt, this).call(window, t, e);
+                    if (t.includes("/history") && e?.body) {
+                        const t = e.headers?.["Content-Type"] ?? e.headers?.get?.("Content-Type");
+                        if (t?.includes("application/json"))
+                            try {
+                                const t = "string" == typeof e.body ? e.body : await (e.body.text?.())
+                                  , n = JSON.parse(t);
+                                n.MessageBody && (Ht(Vt, this).track("Bypassed chat filtering", i.getUserData(window.msp2Client.getToken())),
+                                n.MessageBody = n.MessageBody.split("").join(Ht(te, this)),
+                                e.body = JSON.stringify(n))
+                            } catch (t) {}
+                    }
+                    return Ht(Xt, this).call(window, t, e)
+                }
+            }
+            )),
+            Yt(this, ie, ( () => {
+                window.WebSocket = function() {
+                    for (var e = arguments.length, n = new Array(e), o = 0; o < e; o++)
+                        n[o] = arguments[o];
+                    const s = new (Ht(Kt, t))(...n)
+                      , r = s.send;
+                    return s.send = e => {
+                        if (!Ht(Qt, t))
+                            return r.call(s, e);
+                        try {
+                            if ("string" == typeof e && e.startsWith("42[")) {
+                                const n = JSON.parse(e.slice(2));
+                                Array.isArray(n) && "chatv2:send" === n[0] && n[1]?.message && (n[1].message = n[1].message.split("").join(Ht(te, t)),
+                                e = "42" + JSON.stringify(n),
+                                Ht(Vt, t).track("Bypassed chat filtering in chatroom", i.getUserData(window.msp2Client.getToken())))
+                            }
+                        } catch (t) {}
+                        r.call(s, e)
+                    }
+                    ,
+                    s
+                }
+                ,
+                Object.assign(window.WebSocket, Ht(Kt, this))
+            }
+            )),
+            Rt(this, "toggle", ( () => {
+                Zt(Qt, this, !Ht(Qt, this))
+            }
+            )),
+            Rt(this, "restore", ( () => {
+                Zt(Qt, this, !1),
+                window.fetch = Ht(Xt, this),
+                window.WebSocket = Ht(Kt, this)
+            }
+            )),
+            Zt(Vt, this, g.getInstance()),
+            [Ft(Zt, [Xt, this]).t,Ft(Zt, [Kt, this]).t] = [window.fetch, window.WebSocket],
+            Ht(ee, this).call(this)
+        }
+    }
+    function se(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function re(t, e) {
+        return t.get(ce(t, e))
+    }
+    function ae(t, e, n) {
+        return t.set(ce(t, e), n),
+        n
+    }
+    function ce(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var de = new WeakMap
+      , he = new WeakMap
+      , ue = new WeakMap
+      , pe = new WeakMap;
+    class le {
+        constructor() {
+            if (se(this, de, !0),
+            se(this, he, localStorage.getItem("selectedEmote") || "shimm_2024_fireworkswalk_lsz"),
+            se(this, ue, void 0),
+            se(this, pe, new Set(["noshoes_skating", "swim_new", "bunny_hold", "2023_spidercrawl_lsz", "bad_2022_teenwalk_dg", "xmas_2022_frosty_dg", "xmas_2022_freezing_lsz", "2022_turkeywalk_lsz", "2022_easter_sackjump_dg", "cool_slide", "very_2022_froglike_lsz", "2023_bended_lz", "shimm_2024_fireworkswalk_lsz"])),
+            me.t)
+                return me.t;
+            me.t = this,
+            ae(ue, this, window.WebSocket),
+            this.initialize()
+        }
+        static getInstance() {
+            return me.t ?? new le
+        }
+        initialize() {
+            this.interceptWebSocket()
+        }
+        getEmotes() {
+            return Array.from(re(pe, this))
+        }
+        getCurrentEmote() {
+            return re(he, this)
+        }
+        get isEnabled() {
+            return re(de, this)
+        }
+        setCurrentEmote(t) {
+            re(pe, this).has(t) && (ae(he, this, t),
+            localStorage.setItem("selectedEmote", t))
+        }
+        formatEmoteName(t) {
+            return t.split("_").map((t => t.charAt(0).toUpperCase() + t.slice(1))).join(" ")
+        }
+        interceptWebSocket() {
+            const t = this;
+            window.WebSocket = function() {
+                for (var e = arguments.length, n = new Array(e), i = 0; i < e; i++)
+                    n[i] = arguments[i];
+                const o = new (re(ue, t))(...n)
+                  , s = o.send;
+                return o.send = function(e) {
+                    if (re(de, t) && "string" == typeof e && e.startsWith('42["7001"'))
+                        try {
+                            const n = JSON.parse(e.slice(2));
+                            Array.isArray(n) && n[1]?.mood && (n[1].mood = re(he, t),
+                            e = "42" + JSON.stringify(n))
+                        } catch (t) {}
+                    return s.call(this, e)
+                }
+                ,
+                o
+            }
+            ,
+            Object.assign(window.WebSocket, re(ue, this))
+        }
+        toggle() {
+            ae(de, this, !re(de, this))
+        }
+        restore() {
+            ae(de, this, !1),
+            window.WebSocket = re(ue, this)
+        }
+    }
+    var me = {
+        t: void 0
+    };
+    function ge(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function fe(t, e) {
+        return t.get(be(t, e))
+    }
+    function we(t, e, n) {
+        return t.set(be(t, e), n),
+        n
+    }
+    function be(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var ve = new WeakMap
+      , ye = new WeakMap
+      , xe = new WeakMap
+      , Me = new WeakMap
+      , ke = new WeakMap
+      , Ie = new WeakMap
+      , Se = new WeakMap;
+    class je {
+        constructor() {
+            ge(this, ve, !0),
+            ge(this, ye, void 0),
+            ge(this, xe, void 0),
+            ge(this, Me, void 0),
+            ge(this, ke, void 0),
+            ge(this, Ie, null),
+            ge(this, Se, null),
+            we(ye, this, g.getInstance()),
+            we(xe, this, A.getInstance()),
+            we(Me, this, window.WebSocket),
+            we(ke, this, window.fetch),
+            this.initialize()
+        }
+        initialize() {
+            this.interceptWebSocket(),
+            this.createNotificationStyles(),
+            this.setupKeyboardShortcut()
+        }
+        setupKeyboardShortcut() {
+            window.addEventListener("keydown", (t => {
+                t.altKey && "1" === t.key && (t.preventDefault(),
+                this.handleAutogreetCommand())
+            }
+            ))
+        }
+        createNotificationStyles() {
+            const t = document.createElement("style");
+            t.textContent = "\n      .greet-notification {\n        position: fixed;\n        top: -100px;\n        left: 50%;\n        transform: translateX(-50%);\n        background: rgba(17, 17, 27, 0.95);\n        color: #fff;\n        padding: 12px 24px;\n        border-radius: 12px;\n        font-family: 'Inter', system-ui, -apple-system, sans-serif;\n        font-size: 14px;\n        z-index: 10000;\n        display: flex;\n        align-items: center;\n        gap: 8px;\n        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);\n        border: 1px solid rgba(255, 255, 255, 0.1);\n        transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n      }\n      .greet-notification.show {\n        top: 20px;\n      }\n    ",
+            document.head.appendChild(t)
+        }
+        showNotification(t) {
+            let e = !(arguments.length > 1 && void 0 !== arguments[1]) || arguments[1];
+            const n = document.createElement("div");
+            n.className = "greet-notification",
+            n.innerHTML = `${e ? "✅" : "❌"} ${t}`,
+            document.body.appendChild(n),
+            setTimeout(( () => n.classList.add("show")), 100),
+            setTimeout(( () => {
+                n.classList.remove("show"),
+                setTimeout(( () => n.remove()), 300)
+            }
+            ), 3e3)
+        }
+        interceptWebSocket() {
+            const t = window.WebSocket
+              , e = this;
+            window.WebSocket = function() {
+                for (var n = arguments.length, i = new Array(n), o = 0; o < n; o++)
+                    i[o] = arguments[o];
+                const s = new t(...i);
+                s.addEventListener("message", (t => {
+                    fe(ve, e) && e.handleMessage(s, t.data)
+                }
+                ));
+                const r = s.send;
+                return s.send = function(t) {
+                    return fe(ve, e) && "string" == typeof t && ('42["chatv2:send",{"message":"autogreet"}]' === t || '42["chatv2:send",{"message":"a​u​t​o​g​r​e​e​t"}]' === t || t.includes('"message":"autogreet"') || t.includes('"message":"a​u​t​o​g​r​e​e​t"')) && e.handleAutogreetCommand(),
+                    r.apply(this, arguments)
+                }
+                ,
+                s
+            }
+            ,
+            Object.assign(window.WebSocket, t)
+        }
+        async handleAutogreetCommand() {
+            const t = await this.promptUsername();
+            if (!t)
+                return;
+            const e = i.getToken();
+            if (!e)
+                return void this.showNotification("Not logged in", !1);
+            const n = i.getUserData(e);
+            if (!n?.name)
+                return void this.showNotification("Could not get user data", !1);
+            const o = n.name.split("|")[0]
+              , s = await this.findProfileId(t, o);
+            s ? (we(Ie, this, s),
+            this.startGreeting()) : this.showNotification(`Could not find user ${t}`, !1)
+        }
+        handleMessage(t, e) {
+            !e.startsWith('40{"jwt":"') && e.match(/^\d+$/)
+        }
+        promptUsername() {
+            return new Promise((t => {
+                const e = prompt("Enter username to auto-greet:");
+                t(e?.trim() || null)
+            }
+            ))
+        }
+        async findProfileId(t, e) {
+            try {
+                const n = await fetch("https://eu.mspapis.com/edgerelationships/graphql/graphql", {
+                    method: "POST",
+                    headers: fe(xe, this).getHeaders(i.getToken()),
+                    body: JSON.stringify({
+                        query: "query GetProfileSearch($region: String!, $startsWith: String!, $pageSize: Int, $currentPage: Int, $preferredGameId: String!) { findProfiles(region: $region, nameBeginsWith: $startsWith, pageSize: $pageSize, page: $currentPage) { totalCount nodes { id avatar(preferredGameId: $preferredGameId) { gameId face full } } } }",
+                        variables: JSON.stringify({
+                            region: e,
+                            startsWith: t,
+                            pageSize: 50,
+                            currentPage: 1,
+                            preferredGameId: "j68d"
+                        })
+                    })
+                })
+                  , o = await n.json();
+                return o?.data?.findProfiles?.nodes?.[0]?.id || null
+            } catch (t) {
+                return null
+            }
+        }
+        async sendGreeting() {
+            if (fe(Ie, this))
+                try {
+                    const t = await fetch("https://eu.mspapis.com/federationgateway/graphql", {
+                        method: "POST",
+                        headers: fe(xe, this).getHeaders(i.getToken()),
+                        body: JSON.stringify({
+                            id: "SendGreetings-159BDD7706D824BB8F14874A7FAE3368",
+                            variables: {
+                                greetingType: "Autograph",
+                                receiverProfileId: fe(Ie, this),
+                                ignoreDailyCap: !0
+                            }
+                        })
+                    })
+                      , e = await t.json()
+                      , n = e?.data?.greetings?.sendGreeting?.success;
+                    if (!n)
+                        return fe(ye, this).track("sent-greeting-failed"),
+                        void this.showNotification("Failed to send greeting", !1);
+                    fe(ye, this).track("sent-greeting"),
+                    this.showNotification("Greeting sent successfully!", !0)
+                } catch (t) {
+                    fe(ye, this).track("sent-greeting-failed"),
+                    this.showNotification("Error sending greeting", !1)
+                }
+        }
+        startGreeting() {
+            fe(Se, this) && clearInterval(fe(Se, this)),
+            this.sendGreeting(),
+            we(Se, this, setInterval(( () => this.sendGreeting()), 123e3))
+        }
+        stopGreeting() {
+            fe(Se, this) && (clearInterval(fe(Se, this)),
+            we(Se, this, null)),
+            we(Ie, this, null)
+        }
+        toggle() {
+            we(ve, this, !fe(ve, this)),
+            fe(ve, this) || this.stopGreeting(),
+            fe(ye, this).track("Greetings Service " + (fe(ve, this) ? "Enabled" : "Disabled"))
+        }
+        restore() {
+            this.stopGreeting(),
+            window.WebSocket = fe(Me, this),
+            window.fetch = fe(ke, this)
+        }
+    }
+    function Ae(t, e, n) {
+        We(t, e),
+        e.set(t, n)
+    }
+    function We(t, e) {
+        if (e.has(t))
+            throw new TypeError("Cannot initialize the same private elements twice on an object")
+    }
+    function Ce(t, e) {
+        return t.get(ze(t, e))
+    }
+    function Te(t, e, n) {
+        return t.set(ze(t, e), n),
+        n
+    }
+    function ze(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var De = new WeakMap
+      , Ee = new WeakMap
+      , Ne = new WeakMap
+      , Pe = new WeakMap
+      , $e = new WeakMap
+      , Oe = new WeakSet;
+    class _e {
+        constructor() {
+            var t;
+            We(this, t = Oe),
+            t.add(this),
+            Ae(this, De, !0),
+            Ae(this, Ee, void 0),
+            Ae(this, Ne, void 0),
+            Ae(this, Pe, void 0),
+            Ae(this, $e, /^https:\/\/[^/]+\/profilegeneratedcontent\/v2\/profiles\/[^/]+\/games\/j68d\/content$/),
+            Te(Ee, this, g.getInstance()),
+            Te(Ne, this, A.getInstance()),
+            Te(Pe, this, window.fetch),
+            this.initialize()
+        }
+        initialize() {
+            var t = this;
+            window.fetch = async function() {
+                for (var e = arguments.length, n = new Array(e), o = 0; o < e; o++)
+                    n[o] = arguments[o];
+                const [s,r] = n;
+                if (!Ce(De, t) || "string" != typeof s || !Ce($e, t).test(s))
+                    return Ce(Pe, t).apply(window, n);
+                try {
+                    const e = "string" == typeof r?.body ? r.body : await (r?.body?.text?.());
+                    if (e?.includes("WAYD")) {
+                        const e = i.getToken();
+                        if (!e)
+                            return Ce(Pe, t).apply(window, n);
+                        const o = i.getUserData(e)?.profileId;
+                        if (!o)
+                            return Ce(Pe, t).apply(window, n);
+                        const a = await ze(Oe, t, Je).call(t, o, e);
+                        if (!a)
+                            return Ce(Pe, t).apply(window, n);
+                        Ce(Ee, t).track("UGC WAYD Request Modified");
+                        const c = `https://${ze(Oe, t, Le).call(t, e)}${new URL(s).pathname}/${a}`;
+                        return Ce(Pe, t).call(window, c, {
+                            ...r,
+                            method: "PUT"
+                        })
+                    }
+                } catch (t) {}
+                return Ce(Pe, t).apply(window, n)
+            }
+        }
+        toggle() {
+            Te(De, this, !Ce(De, this))
+        }
+        restore() {
+            Te(De, this, !1),
+            window.fetch = Ce(Pe, this)
+        }
+    }
+    function Le(t) {
+        if (!t)
+            return "eu.mspapis.com";
+        const e = i.getUserData(t);
+        return "US" === e?.name?.split("|")[0] ? "us.mspapis.com" : "eu.mspapis.com"
+    }
+    async function Je(t, e) {
+        if (!Ce(De, this))
+            return null;
+        try {
+            const n = ze(Oe, this, Le).call(this, e)
+              , i = await Ce(Pe, this).call(this, `https://${n}/profileattributes/v1/profiles/${t}/games/j68d/attributes`, {
+                headers: Ce(Ne, this).getHeaders(e)
+            })
+              , o = await i.json();
+            return o?.additionalData?.WAYD || null
+        } catch (t) {
+            return null
+        }
+    }
+    function Ue(t, e, n) {
+        Ge(t, e),
+        e.set(t, n)
+    }
+    function Ge(t, e) {
+        if (e.has(t))
+            throw new TypeError("Cannot initialize the same private elements twice on an object")
+    }
+    function Be(t, e) {
+        return t.get(Ye(t, e))
+    }
+    function Re(t, e, n) {
+        return t.set(Ye(t, e), n),
+        n
+    }
+    function Ye(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var He = new WeakMap
+      , Fe = new WeakMap
+      , Ze = new WeakMap
+      , qe = new WeakMap
+      , Qe = new WeakMap
+      , Ve = new WeakMap
+      , Xe = new WeakMap
+      , Ke = new WeakMap
+      , tn = new WeakMap
+      , en = new WeakMap
+      , nn = new WeakMap
+      , on = new WeakMap
+      , sn = new WeakMap
+      , rn = new WeakMap
+      , an = new WeakMap
+      , cn = new WeakMap
+      , dn = new WeakSet;
+    class hn {
+        constructor() {
+            var t;
+            if (Ge(this, t = dn),
+            t.add(this),
+            Ue(this, He, void 0),
+            Ue(this, Fe, void 0),
+            Ue(this, Ze, new Map),
+            Ue(this, qe, !0),
+            Ue(this, Qe, !1),
+            Ue(this, Ve, "services"),
+            Ue(this, Xe, JSON.parse(localStorage.getItem("modMenuPosition") || '{"x": 20, "y": 20}')),
+            Ue(this, Ke, null),
+            Ue(this, tn, null),
+            Ue(this, en, void 0),
+            Ue(this, nn, !1),
+            Ue(this, on, new Set),
+            Ue(this, sn, "hattys_home"),
+            Ue(this, rn, !1),
+            Ue(this, an, [{
+                id: "Superstar_Diamond",
+                name: "Superstar Diamond"
+            }, {
+                id: "PlayedBeta",
+                name: "Played Beta"
+            }, {
+                id: "Xmas2024_Gingerbread",
+                name: "Christmas 2024 Gingerbread"
+            }]),
+            Ue(this, cn, [{
+                id: "hattys_home",
+                name: "Hatty's Home"
+            }, {
+                id: "fallback_room",
+                name: "Fallback Room"
+            }, {
+                id: "myhome_bling_vip",
+                name: "Bling VIP"
+            }, {
+                id: "myhome_tiny",
+                name: "Tiny Home"
+            }, {
+                id: "easter_22_vip",
+                name: "Easter 2022 VIP"
+            }, {
+                id: "easter_24_questforest_enchanted",
+                name: "Enchanted Forest 2024"
+            }, {
+                id: "island_quest_words",
+                name: "Island Quest Words"
+            }, {
+                id: "island_quest_party_day_night",
+                name: "Island Party Day/Night"
+            }, {
+                id: "forest",
+                name: "Forest"
+            }, {
+                id: "myhome_basic_2floor",
+                name: "Basic 2 Floor"
+            }, {
+                id: "halloween_21_forest",
+                name: "Halloween 2021 Forest"
+            }, {
+                id: "under_the_deep",
+                name: "Under The Deep"
+            }, {
+                id: "halloween_21_vip_club",
+                name: "Halloween 2021 VIP Club"
+            }, {
+                id: "under_the_sea",
+                name: "Under The Sea"
+            }]),
+            vn.t)
+                return vn.t;
+            vn.t = this,
+            Re(He, this, g.getInstance()),
+            Re(en, this, A.getInstance()),
+            "loading" === document.readyState ? document.addEventListener("DOMContentLoaded", ( () => this.initialize())) : this.initialize()
+        }
+        static getInstance() {
+            return vn.t ?? new hn
+        }
+        fixBase64Padding(t) {
+            for (; t.length % 4 != 0; )
+                t += "=";
+            return t
+        }
+        registerService(t, e) {
+            let n = arguments.length > 2 && void 0 !== arguments[2] ? arguments[2] : ""
+              , i = arguments.length > 3 && void 0 !== arguments[3] ? arguments[3] : "";
+            return "Emote Service" === t ? (Re(Ke, this, e),
+            void this.updateMenu()) : "Loveits Service" === t ? (Re(tn, this, e),
+            e.setMenuUpdateCallback(( () => this.updateMenu())),
+            void this.updateMenu()) : (Be(Ze, this).set(t, {
+                service: e,
+                enabled: !0,
+                description: n,
+                shortcut: i
+            }),
+            void this.updateMenu())
+        }
+        createCustomProfileImageSection() {
+            const t = document.createElement("div");
+            t.className = "emote-section";
+            const e = document.createElement("div");
+            e.className = "emote-header";
+            const n = document.createElement("div");
+            n.className = "emote-title",
+            n.textContent = "Custom Profile Image";
+            const i = document.createElement("div");
+            i.className = "emote-status " + (Be(nn, this) ? "inactive" : "active"),
+            i.textContent = Be(nn, this) ? "Uploading..." : "Ready",
+            e.appendChild(n),
+            e.appendChild(i);
+            const o = document.createElement("div");
+            o.className = "emote-controls";
+            const s = document.createElement("div");
+            s.className = "drop-zone",
+            s.innerHTML = '\n            <div class="drop-zone-text">\n                Drop PNG image here<br>or click to select\n            </div>\n            <input type="file" accept=".png" style="display: none">\n        ',
+            Object.assign(s.style, {
+                border: "2px dashed rgba(137, 180, 250, 0.3)",
+                borderRadius: "8px",
+                padding: "20px",
+                textAlign: "center",
+                cursor: "pointer",
+                backgroundColor: "transparent",
+                transition: "all 0.2s ease"
+            }),
+            s.addEventListener("click", ( () => {
+                Be(nn, this) || s.querySelector("input").click()
+            }
+            )),
+            s.addEventListener("dragover", (t => {
+                t.preventDefault(),
+                Be(nn, this) || (s.style.borderColor = "rgba(137, 180, 250, 0.8)",
+                s.style.backgroundColor = "rgba(49, 50, 68, 0.3)")
+            }
+            )),
+            s.addEventListener("dragleave", ( () => {
+                s.style.borderColor = "rgba(137, 180, 250, 0.3)",
+                s.style.backgroundColor = "transparent"
+            }
+            )),
+            s.addEventListener("drop", (t => {
+                if (t.preventDefault(),
+                !Be(nn, this)) {
+                    const e = t.dataTransfer.files[0];
+                    e && "image/png" === e.type ? Ye(dn, this, gn).call(this, e) : this.showNotification("Please upload a PNG image", !1)
+                }
+                s.style.borderColor = "rgba(137, 180, 250, 0.3)",
+                s.style.backgroundColor = "transparent"
+            }
+            ));
+            const r = s.querySelector("input");
+            return r.addEventListener("change", ( () => {
+                !Be(nn, this) && r.files[0] && Ye(dn, this, gn).call(this, r.files[0])
+            }
+            )),
+            o.appendChild(s),
+            t.appendChild(e),
+            t.appendChild(o),
+            t
+        }
+        centerMenu() {
+            const t = window.innerWidth
+              , e = window.innerHeight
+              , n = Be(Fe, this).offsetWidth
+              , i = Be(Fe, this).offsetHeight;
+            Be(Xe, this).x = (t - n) / 2,
+            Be(Xe, this).y = (e - i) / 2,
+            Be(Fe, this).style.left = `${Be(Xe, this).x}px`,
+            Be(Fe, this).style.top = `${Be(Xe, this).y}px`,
+            localStorage.setItem("modMenuPosition", JSON.stringify(Be(Xe, this)))
+        }
+        initialize() {
+            this.createStyles(),
+            this.createMenu(),
+            this.setupKeyboardShortcut()
+        }
+        setupKeyboardShortcut() {
+            document.addEventListener("keydown", (t => {
+                t.altKey && "m" === t.key && (t.preventDefault(),
+                this.toggleVisibility())
+            }
+            ))
+        }
+        toggleMinimize() {
+            Re(Qe, this, !Be(Qe, this)),
+            Be(Fe, this).classList.toggle("minimized", Be(Qe, this)),
+            Be(Fe, this).querySelector(".mod-menu-button").innerHTML = Be(Qe, this) ? "+" : "−",
+            Be(He, this).track("Mod Menu Minimized", {
+                minimized: Be(Qe, this)
+            })
+        }
+        toggleVisibility() {
+            Re(qe, this, !Be(qe, this)),
+            Be(Fe, this).classList.toggle("hidden", !Be(qe, this)),
+            Be(He, this).track("Mod Menu Toggled", {
+                visible: Be(qe, this)
+            })
+        }
+        createTabButton(t) {
+            let e = arguments.length > 1 && void 0 !== arguments[1] && arguments[1];
+            const n = document.createElement("button");
+            n.className = "mod-menu-tab " + (e ? "active" : "");
+            const i = document.createElement("img");
+            i.className = "tab-icon",
+            i.src = Ye(dn, this, bn).call(this, t);
+            const o = document.createElement("span");
+            return o.textContent = t,
+            n.appendChild(i),
+            n.appendChild(o),
+            n.onclick = () => {
+                Re(Ve, this, t.toLowerCase()),
+                this.updateMenu(),
+                Be(He, this).track("Tab Changed", {
+                    tab: t
+                })
+            }
+            ,
+            n
+        }
+        createStyles() {
+            const t = document.createElement("style");
+            t.textContent = "\n            .mod-menu {\n                position: fixed;\n                background: rgba(17, 17, 27, 0.95);\n                border-radius: 12px;\n                padding: 12px;\n                font-family: 'Inter', system-ui, -apple-system, sans-serif;\n                color: #cdd6f4;\n                width: 300px;\n                backdrop-filter: blur(10px);\n                border: 1px solid rgba(255, 255, 255, 0.1);\n                box-shadow: 0  8px 32px rgba(0, 0, 0, 0.2);\n                z-index: 999999;\n                transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);\n                max-height: 90vh;\n                overflow: hidden;\n                scrollbar-width: thin;\n                scrollbar-color: rgba(205, 214, 244, 0.2) transparent;\n                zoom: 80%;\n            }\n    \n            .mod-menu.minimized {\n                max-height: 42px;\n            }\n    \n            .mod-menu.minimized .mod-menu-content {\n                opacity: 0;\n                transform: translateY(-10px);\n                pointer-events: none;\n            }\n    \n            .mod-menu-content {\n                transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);\n                opacity: 1;\n                transform: translateY(0);\n                overflow-y: auto;\n                max-height: calc(90vh - 42px);\n            }\n    \n            .mod-menu::-webkit-scrollbar {\n                width: 4px;\n            }\n    \n            .mod-menu::-webkit-scrollbar-track {\n                background: transparent;\n            }\n    \n            .mod-menu::-webkit-scrollbar-thumb {\n                background-color: rgba(205, 214, 244, 0.2);\n                border-radius: 2px;\n            }\n    \n            .mod-menu-header {\n                display: flex;\n                justify-content: space-between;\n                align-items: center;\n                margin-bottom: 12px;\n                padding-bottom: 8px;\n                border-bottom: 1px solid rgba(205, 214, 244, 0.1);\n                cursor: move;\n                user-select: none;\n                height: 22px;\n            }\n    \n            .mod-menu.minimized .mod-menu-header {\n                margin-bottom: 0;\n                padding-bottom: 0;\n                border-bottom: none;\n            }\n    \n            .mod-menu-title {\n                font-size: 16px;\n                font-weight: 600;\n                background: linear-gradient(135deg, #cdd6f4 0%, #89b4fa 100%);\n                -webkit-background-clip: text;\n                -webkit-text-fill-color: transparent;\n                letter-spacing: -0.3px;\n            }\n    \n            .mod-menu-controls {\n                display: flex;\n                gap: 6px;\n            }\n    \n            .mod-menu-button {\n                background: rgba(69, 71, 90, 0.5);\n                border: none;\n                color: #cdd6f4;\n                width: 24px;\n                height: 24px;\n                border-radius: 6px;\n                cursor: pointer;\n                display: flex;\n                align-items: center;\n                justify-content: center;\n                font-size: 16px;\n                transition: all 0.2s ease;\n            }\n    \n            .mod-menu-button:hover {\n                background: rgba(88, 91, 112, 0.7);\n                transform: scale(1.05);\n            }\n    \n            .mod-menu-tabs {\n                display: flex;\n                gap: 4px;\n                margin-bottom: 12px;\n                padding: 2px;\n                background: rgba(49, 50, 68, 0.3);\n                border-radius: 6px;\n            }\n    \n            .mod-menu-tab {\n                flex: 1;\n                padding: 6px;\n                border: none;\n                background: none;\n                color: #cdd6f4;\n                border-radius: 4px;\n                cursor: pointer;\n                font-size: 12px;\n                transition: all 0.2s ease;\n                text-align: center;\n                text-transform: uppercase;\n                letter-spacing: 0.5px;\n                font-weight: 500;\n                display: flex;\n                align-items: center;\n                justify-content: center;\n                gap: 6px;\n            }\n    \n            .tab-icon {\n                width: 16px;\n                height: 16px;\n                opacity: 0.8;\n            }\n    \n            .service-icon {\n                width: 16px;\n                height: 16px;\n                opacity: 0.8;\n                margin-right: 6px;\n            }\n    \n            .center-icon {\n                width: 16px;\n                height: 16px;\n                opacity: 0.8;\n            }\n    \n            .mod-menu-tab:hover {\n                background: rgba(88, 91, 112, 0.3);\n            }\n    \n            .mod-menu-tab.active {\n                background: rgba(137, 180, 250, 0.2);\n                color: #89b4fa;\n            }\n    \n            .mod-menu-service {\n                background: rgba(49, 50, 68, 0.3);\n                border-radius: 8px;\n                padding: 10px;\n                margin-bottom: 8px;\n                transition: all 0.2s ease;\n            }\n    \n            .mod-menu-service:hover {\n                background: rgba(49, 50, 68, 0.5);\n            }\n    \n            .service-header {\n                display: flex;\n                justify-content: space-between;\n                align-items: center;\n                margin-bottom: 4px;\n            }\n    \n            .service-name {\n                font-weight: 500;\n                font-size: 14px;\n                color: #cdd6f4;\n                display: flex;\n                align-items: center;\n            }\n    \n            .service-shortcut {\n                font-size: 11px;\n                color: #6c7086;\n                background: rgba(108, 112, 134, 0.2);\n                padding: 2px 6px;\n                border-radius: 4px;\n            }\n    \n            .service-description {\n                font-size: 12px;\n                color: #a6adc8;\n                margin-bottom: 6px;\n                line-height: 1.3;\n            }\n    \n            .service-toggle {\n                position: relative;\n                display: inline-block;\n                width: 36px;\n                height: 20px;\n            }\n    \n            .service-toggle input {\n                opacity: 0;\n                width: 0;\n                height: 0;\n            }\n    \n            .service-toggle-slider {\n                position: absolute;\n                cursor: pointer;\n                top: 0;\n                left: 0;\n                right: 0;\n                bottom: 0;\n                background-color: rgba(127, 132, 156, 0.4);\n                transition: .3s;\n                border-radius: 34px;\n            }\n    \n            .service-toggle-slider:before {\n                position: absolute;\n                content: \"\";\n                height: 16px;\n                width: 16px;\n                left: 2px;\n                bottom: 2px;\n                background-color: #cdd6f4;\n                transition: .3s;\n                border-radius: 50%;\n            }\n    \n            .service-toggle input:checked + .service-toggle-slider {\n                background-color: #89b4fa;\n            }\n    \n            .service-toggle input:checked + .service-toggle-slider:before {\n                transform: translateX(16px);\n            }\n    \n            .emote-section {\n                background: transparent;\n                border-radius: 12px;\n                padding: 16px;\n                margin-bottom: 16px;\n                border: 1px solid rgba(137, 180, 250, 0.15);\n                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);\n            }\n    \n            .emote-header {\n                display: flex;\n                justify-content: space-between;\n                align-items: center;\n                margin-bottom: 16px;\n                padding-bottom: 12px;\n                border-bottom: 1px solid rgba(137, 180, 250, 0.15);\n            }\n    \n            .emote-title {\n                font-size: 14px;\n                font-weight: 600;\n                color: #cdd6f4;\n                letter-spacing: 0.5px;\n                text-transform: uppercase;\n                background: linear-gradient(135deg, #cdd6f4 0%, #89b4fa 100%);\n                -webkit-background-clip: text;\n                -webkit-text-fill-color: transparent;\n            }\n    \n            .emote-status {\n                font-size: 12px;\n                padding: 4px 8px;\n                border-radius: 6px;\n                font-weight: 500;\n                letter-spacing: 0.5px;\n                transition: all 0.3s ease;\n            }\n    \n            .emote-status.active {\n                background: rgba(166, 227, 161, 0.2);\n                color: #a6e3a1;\n                border: 1px solid rgba(166, 227, 161, 0.3);\n            }\n    \n            .emote-status.inactive {\n                background: rgba(243, 139, 168, 0.2);\n                color: #f38ba8;\n                border: 1px solid rgba(243, 139, 168, 0.3);\n            }\n    \n            .emote-controls {\n                display: flex;\n                flex-direction: column;\n                gap: 12px;\n            }\n    \n            .emote-select {\n                background: rgba(49, 50, 68, 0.6);\n                border: 1px solid rgba(137, 180, 250, 0.3);\n                border-radius: 8px;\n                color: #cdd6f4;\n                font-size: 13px;\n                padding: 10px 32px 10px 12px;\n                appearance: none;\n                cursor: pointer;\n                transition: all 0.2s ease;\n                width: 100%;\n                background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='rgba(205, 214, 244, 0.5)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\");\n                background-repeat: no-repeat;\n                background-position: right 8px center;\n                background-size: 16px;\n            }\n    \n            .emote-select:hover {\n                border-color: rgba(137, 180, 250, 0.5);\n                background-color: rgba(49, 50, 68, 0.8);\n            }\n    \n            .emote-select:focus {\n                outline: none;\n                border-color: #89b4fa;\n                box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.2);\n            }\n    \n            .emote-toggle {\n                padding: 10px;\n                background: rgba(137, 180, 250, 0.2);\n                border: 1px solid rgba(137, 180, 250, 0.3);\n                border-radius: 8px;\n                color: #cdd6f4;\n                font-size: 13px;\n                font-weight: 500;\n                cursor: pointer;\n                transition: all 0.2s ease;\n                text-align: center;\n                text-transform: uppercase;\n                letter-spacing: 0.5px;\n            }\n    \n            .emote-toggle:hover {\n                background: rgba(137, 180, 250, 0.3);\n                border-color: rgba(137, 180, 250, 0.4);\n                transform: translateY(-1px);\n            }\n    \n            .emote-toggle:active {\n                transform: translateY(0);\n            }\n    \n            .emote-toggle:disabled {\n                background: rgba(108, 112, 134, 0.2);\n                border-color: rgba(108, 112, 134, 0.3);\n                color: #6c7086;\n                cursor: not-allowed;\n                transform: none;\n            }\n    \n            .emote-preview {\n                margin-top: 12px;\n                padding: 12px;\n                background: rgba(49, 50, 68, 0.3);\n                border-radius: 8px;\n                font-size: 12px;\n                color: #a6adc8;\n                text-align: center;\n                border: 1px dashed rgba(137, 180, 250, 0.2);\n            }\n    \n            .emote-preview span {\n                color: #89b4fa;\n                font-weight: 500;\n            }\n    \n            .status-section {\n                margin-top: 16px;\n                padding: 16px;\n                background: rgba(49, 50, 68, 0.4);\n                border-radius: 8px;\n                border: 1px solid rgba(137, 180, 250, 0.1);\n            }\n    \n            .status-title {\n                font-size: 14px;\n                font-weight: 600;\n                color: #cdd6f4;\n                margin-bottom: 12px;\n                letter-spacing: 0.5px;\n                text-transform: uppercase;\n            }\n    \n            .status-grid {\n                display: grid;\n                grid-template-columns: repeat(2, 1fr);\n                gap: 8px;\n            }\n    \n            .status-item {\n                background: rgba(49, 50, 68, 0.3);\n                padding: 8px;\n                border-radius: 6px;\n                text-align: center;\n            }\n    \n            .status-value {\n                font-size: 16px;\n                font-weight: 600;\n                color: #cdd6f4;\n            }\n    \n            .status-label {\n                font-size: 11px;\n                color: #a6adc8;\n                text-transform: uppercase;\n                letter-spacing: 0.5px;\n                margin-top: 2px;\n            }\n    \n            .status-button {\n                width: 100%;\n                padding: 8px;\n                margin-top: 12px;\n                background: rgba(137, 180, 250, 0.2);\n                border: 1px solid rgba(137, 180, 250, 0.3);\n                border-radius: 6px;\n                color: #cdd6f4;\n                font-size: 12px;\n                font-weight: 500;\n                text-transform: uppercase;\n                letter-spacing: 0.5px;\n                cursor: pointer;\n                transition: all 0.2s ease;\n            }\n    \n            .status-button:hover {\n                background: rgba(137, 180, 250, 0.3);\n            }\n    \n            .status-button:disabled {\n                background: rgba(108, 112, 134, 0.2);\n                border-color: rgba(108, 112, 134, 0.3);\n                color: #6c7086;\n                cursor: not-allowed;\n            }\n    \n            .discord-section {\n                margin-top: 16px;\n                padding: 16px;\n                background: transparent;\n                border-radius: 8px;\n                border: 1px solid rgba(137, 180, 250, 0.1);\n                display: flex;\n                flex-direction: column;\n                gap: 12px;\n            }\n    \n            .discord-title {\n                font-size: 14px;\n                font-weight: 600;\n                color: #cdd6f4;\n                letter-spacing: 0.5px;\n                text-transform: uppercase;\n            }\n    \n            .discord-button {\n                display: flex;\n                align-items: center;\n                justify-content: center;\n                width: 100%;\n                padding: 8px;\n                background: rgba(88, 101, 242, 0.3);\n                border: 1px solid rgba(88, 101, 242, 0.5);\n                border-radius: 6px;\n                color: #cdd6f4;\n                font-size: 12px;\n                font-weight: 500;\n                text-transform: uppercase;\n                letter-spacing: 0.5px;\n                text-decoration: none;\n                cursor: pointer;\n                transition: all 0.2s ease;\n                box-sizing: border-box;\n            }\n    \n            .discord-button:hover {\n                background: rgba(88, 101, 242, 0.4);\n                border-color: rgba(88, 101, 242, 0.6);\n            }\n    \n            .drop-zone {\n                border: 2px dashed rgba(137, 180, 250, 0.3);\n                border-radius: 8px;\n                padding: 20px;\n                text-align: center;\n                cursor: pointer;\n                background-color: transparent;\n                transition: all 0.2s ease;\n            }\n    \n            .drop-zone:hover {\n                border-color: rgba(137, 180, 250, 0.8);\n                background-color: rgba(49, 50, 68, 0.3);\n            }\n    \n            .drop-zone-text {\n                font-size: 14px;\n                color: #cdd6f4;\n                line-height: 1.4;\n            }\n    \n            @keyframes slideIn {\n                from {\n                    opacity: 0;\n                    transform: translateY(-10px);\n                }\n                to {\n                    opacity: 1;\n                    transform: translateY(0);\n                }\n            }\n    \n            .mod-menu.hidden {\n                opacity: 0;\n                pointer-events: none;\n                transform: scale(0.95);\n            }\n    \n            .tab-content {\n                display: none;\n                animation: slideIn 0.3s ease forwards;\n            }\n    \n            .tab-content.active {\n                display: block;\n            }\n    \n            .center-menu-button {\n                width: 100%;\n                padding: 8px;\n                margin-top: 8px;\n                background: rgba(137, 180, 250, 0.2);\n                border: 1px solid rgba(137, 180, 250, 0.3);\n                border-radius: 6px;\n                color: #cdd6f4;\n                font-size: 12px;\n                font-weight: 500;\n                text-transform: uppercase;\n                letter-spacing: 0.5px;\n                cursor: pointer;\n                transition: all 0.2s ease;\n                display: flex;\n                align-items: center;\n                justify-content: center;\n                gap: 6px;\n            }\n    \n            .center-menu-button:hover {\n                background: rgba(137, 180, 250, 0.3);\n                border-color: rgba(137, 180, 250, 0.4);\n            }\n    \n            .achievements-section {\n                margin-top: 16px;\n                padding: 16px;\n                background: transparent;\n                border-radius: 8px;\n                border: 1px solid rgba(137, 180, 250, 0.1);\n            }\n    \n            .achievements-title {\n                font-size: 14px;\n                font-weight: 600;\n                margin-bottom: 12px;\n                letter-spacing: 0.5px;\n                text-transform: uppercase;\n                background: linear-gradient(135deg, #cdd6f4 0%, #89b4fa 100%);\n                -webkit-background-clip: text;\n                -webkit-text-fill-color: transparent;\n            }\n    \n            .achievements-list {\n                display: flex;\n                flex-direction: column;\n                gap: 8px;\n                margin-bottom: 12px;\n            }\n    \n            .achievement-item {\n                display: flex;\n                align-items: center;\n                gap: 8px;\n                padding: 8px 12px;\n                background: rgba(49, 50, 68, 0.6);\n                border: 1px solid rgba(137, 180, 250, 0.2);\n                border-radius: 6px;\n                transition: all 0.2s ease;\n                cursor: pointer;\n            }\n    \n            .achievement-item:hover {\n                background: rgba(49, 50, 68, 0.8);\n                border-color: rgba(137, 180, 250, 0.4);\n            }\n    \n            .achievement-checkbox {\n                appearance: none;\n                width: 18px;\n                height: 18px;\n                border: 2px solid rgba(137, 180, 250, 0.4);\n                border-radius: 4px;\n                background: rgba(49, 50, 68, 0.6);\n                cursor: pointer;\n                position: relative;\n                transition: all 0.2s ease;\n            }\n    \n            .achievement-checkbox:checked {\n                background: #89b4fa;\n                border-color: #89b4fa;\n            }\n    \n            .achievement-checkbox:checked::after {\n                content: \"✓\";\n                position: absolute;\n                color: #1e1e2e;\n                font-size: 12px;\n                font-weight: bold;\n                left: 50%;\n                top: 50%;\n                transform: translate(-50%, -50%);\n            }\n    \n            .achievement-label {\n                color: #cdd6f4;\n                font-size: 13px;\n                user-select: none;\n            }\n    \n            .greet-notification {\n                position: fixed;\n                top: -100px;\n                left: 50%;\n                transform: translateX(-50%);\n                background: rgba(17, 17, 27, 0.95);\n                color: #fff;\n                padding: 12px 24px;\n                border-radius: 12px;\n                font-family: 'Inter', system-ui, -apple-system, sans-serif;\n                font-size: 14px;\n                z-index: 10000;\n                display: flex;\n                align-items: center;\n                gap: 8px;\n                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);\n                border: 1px solid rgba(255, 255, 255, 0.1);\n                transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n            }\n    \n            .greet-notification.show {\n                top: 20px;\n            }\n        ",
+            document.head.appendChild(t);
+            const e = document.createElement("link");
+            e.href = "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap",
+            e.rel = "stylesheet",
+            document.head.appendChild(e)
+        }
+        createMenu() {
+            Re(Fe, this, document.createElement("div")),
+            Be(Fe, this).className = "mod-menu",
+            Be(Fe, this).style.left = `${Be(Xe, this).x}px`,
+            Be(Fe, this).style.top = `${Be(Xe, this).y}px`;
+            const t = document.createElement("div");
+            t.className = "mod-menu-header";
+            const e = document.createElement("div");
+            e.className = "mod-menu-title",
+            e.textContent = "Fametopia V.1.1.4";
+            const n = document.createElement("div");
+            n.className = "mod-menu-controls";
+            const i = document.createElement("button");
+            i.className = "mod-menu-button",
+            i.innerHTML = Be(Qe, this) ? "+" : "−",
+            i.onclick = () => this.toggleMinimize(),
+            n.appendChild(i),
+            t.appendChild(e),
+            t.appendChild(n),
+            Be(Fe, this).appendChild(t);
+            let o, s, r, a, c = !1;
+            t.addEventListener("mousedown", (t => {
+                c = !0,
+                r = t.clientX - Be(Xe, this).x,
+                a = t.clientY - Be(Xe, this).y,
+                Be(Fe, this).style.transition = "none"
+            }
+            )),
+            document.addEventListener("mousemove", (t => {
+                c && (t.preventDefault(),
+                o = t.clientX - r,
+                s = t.clientY - a,
+                Be(Xe, this).x = o,
+                Be(Xe, this).y = s,
+                Be(Fe, this).style.left = `${o}px`,
+                Be(Fe, this).style.top = `${s}px`,
+                localStorage.setItem("modMenuPosition", JSON.stringify(Be(Xe, this))))
+            }
+            )),
+            document.addEventListener("mouseup", ( () => {
+                c = !1,
+                Be(Fe, this).style.transition = "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)"
+            }
+            )),
+            document.body.appendChild(Be(Fe, this)),
+            this.updateMenu()
+        }
+        updateMenu() {
+            const t = document.createElement("div");
+            t.className = "mod-menu-content";
+            const e = document.createElement("div");
+            e.className = "mod-menu-tabs",
+            ["Services", "Soft", "Misc"].forEach((t => {
+                const n = this.createTabButton(t, Be(Ve, this) === t.toLowerCase());
+                e.appendChild(n)
+            }
+            )),
+            t.appendChild(e);
+            const n = document.createElement("div");
+            n.className = "tab-content " + ("services" === Be(Ve, this) ? "active" : ""),
+            Be(Ze, this).forEach(( (t, e) => {
+                if (!["Loveits Service"].includes(e)) {
+                    const i = document.createElement("div");
+                    i.className = "mod-menu-service";
+                    const o = document.createElement("div");
+                    o.className = "service-header";
+                    const s = document.createElement("div");
+                    s.style.display = "flex",
+                    s.style.alignItems = "center",
+                    s.style.gap = "6px";
+                    const r = document.createElement("div");
+                    r.className = "service-name",
+                    r.style.display = "flex",
+                    r.style.alignItems = "center";
+                    const a = document.createElement("img");
+                    a.className = "service-icon",
+                    a.src = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjZGQ2ZjQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgMkw2LjUgMTJIMTdsLTUuNSAxMHoiPjwvcGF0aD48L3N2Zz4=";
+                    const c = document.createElement("span");
+                    if (c.textContent = e,
+                    r.appendChild(a),
+                    r.appendChild(c),
+                    s.appendChild(r),
+                    t.shortcut) {
+                        const e = document.createElement("div");
+                        e.className = "service-shortcut",
+                        e.textContent = t.shortcut,
+                        s.appendChild(e)
+                    }
+                    const d = document.createElement("label");
+                    d.className = "service-toggle";
+                    const h = document.createElement("input");
+                    h.type = "checkbox",
+                    h.checked = t.enabled,
+                    h.onchange = () => {
+                        t.enabled = h.checked,
+                        t.service.toggle && t.service.toggle(),
+                        Be(He, this).track("Service Toggled", {
+                            service: e,
+                            enabled: t.enabled
+                        })
+                    }
+                    ;
+                    const u = document.createElement("span");
+                    if (u.className = "service-toggle-slider",
+                    d.appendChild(h),
+                    d.appendChild(u),
+                    o.appendChild(s),
+                    o.appendChild(d),
+                    i.appendChild(o),
+                    t.description) {
+                        const e = document.createElement("div");
+                        e.className = "service-description",
+                        e.textContent = t.description,
+                        i.appendChild(e)
+                    }
+                    n.appendChild(i)
+                }
+            }
+            ));
+            const i = document.createElement("button");
+            i.className = "center-menu-button",
+            i.textContent = "Center Menu",
+            i.onclick = () => {
+                this.centerMenu(),
+                Be(He, this).track("Menu Centered")
+            }
+            ,
+            n.appendChild(i);
+            const o = document.createElement("div");
+            if (o.className = "tab-content " + ("soft" === Be(Ve, this) ? "active" : ""),
+            Be(Ke, this)) {
+                const t = document.createElement("div");
+                t.className = "emote-section";
+                const e = document.createElement("div");
+                e.className = "emote-header";
+                const n = document.createElement("div");
+                n.className = "emote-title",
+                n.textContent = "Emotes";
+                const i = document.createElement("div");
+                i.className = "emote-status " + (Be(Ke, this).isEnabled ? "active" : "inactive"),
+                i.textContent = Be(Ke, this).isEnabled ? "Active" : "Inactive",
+                e.appendChild(n),
+                e.appendChild(i);
+                const s = document.createElement("div");
+                s.className = "emote-controls";
+                const r = document.createElement("select");
+                r.className = "emote-select",
+                Be(Ke, this).getEmotes().forEach((t => {
+                    const e = document.createElement("option");
+                    e.value = t,
+                    e.textContent = Be(Ke, this).formatEmoteName(t),
+                    e.selected = t === Be(Ke, this).getCurrentEmote(),
+                    r.appendChild(e)
+                }
+                )),
+                r.addEventListener("change", (t => {
+                    Be(Ke, this).setCurrentEmote(t.target.value),
+                    Be(He, this).track("Emote Changed", {
+                        emote: t.target.value
+                    }),
+                    this.updatePreview(t.target.value)
+                }
+                ));
+                const a = document.createElement("button");
+                a.className = "emote-toggle",
+                a.textContent = Be(Ke, this).isEnabled ? "Desactivate Emotes" : "Activate Emotes",
+                a.onclick = () => {
+                    Be(Ke, this).toggle(),
+                    a.textContent = Be(Ke, this).isEnabled ? "Desactivate Emotes" : "Activate Emotes",
+                    i.textContent = Be(Ke, this).isEnabled ? "Active" : "Inactive",
+                    i.className = "emote-status " + (Be(Ke, this).isEnabled ? "active" : "inactive"),
+                    Be(He, this).track("Emote Service Toggled")
+                }
+                ;
+                const c = document.createElement("div");
+                c.className = "emote-preview",
+                c.innerHTML = `Current Emote: <span>${Be(Ke, this).formatEmoteName(Be(Ke, this).getCurrentEmote())}</span>`,
+                s.appendChild(r),
+                s.appendChild(a),
+                s.appendChild(c),
+                t.appendChild(e),
+                t.appendChild(s),
+                o.appendChild(t)
+            }
+            o.appendChild(Ye(dn, this, wn).call(this)),
+            o.appendChild(this.createCustomProfileImageSection());
+            const s = document.createElement("div");
+            s.className = "tab-content " + ("misc" === Be(Ve, this) ? "active" : "");
+            const r = document.createElement("div");
+            r.className = "emote-section",
+            r.style.marginBottom = "2px";
+            const a = document.createElement("div");
+            a.className = "emote-header";
+            const c = document.createElement("div");
+            c.className = "emote-title",
+            c.textContent = "Gender Settings",
+            a.appendChild(c);
+            const d = document.createElement("div");
+            d.className = "emote-controls";
+            const h = document.createElement("button");
+            h.className = "emote-toggle",
+            h.textContent = "Swap Gender",
+            h.onclick = () => Ye(dn, this, ln).call(this),
+            d.appendChild(h),
+            r.appendChild(a),
+            r.appendChild(d),
+            s.appendChild(r),
+            s.appendChild(Ye(dn, this, mn).call(this));
+            const u = Be(Ze, this).get("Loveits Service");
+            if (u) {
+                const t = document.createElement("div");
+                t.className = "emote-section";
+                const e = document.createElement("div");
+                e.className = "emote-header";
+                const n = document.createElement("div");
+                n.className = "emote-title",
+                n.textContent = "Loveits",
+                e.appendChild(n);
+                const i = document.createElement("div");
+                i.className = "emote-controls";
+                const o = u.service.getStats();
+                if (o.isProcessing) {
+                    const t = document.createElement("div");
+                    t.className = "loveits-progress",
+                    t.textContent = `Progress: ${o.success + o.failed}/${o.total}`,
+                    i.appendChild(t);
+                    const e = document.createElement("div");
+                    e.className = "loveits-stats",
+                    e.textContent = `Success: ${o.success} | Failed: ${o.failed}`,
+                    i.appendChild(e)
+                }
+                const r = document.createElement("input");
+                r.type = "text",
+                r.className = "emote-input",
+                r.placeholder = "Enter username",
+                r.disabled = o.isProcessing;
+                const a = document.createElement("button");
+                a.className = "emote-toggle",
+                a.textContent = o.isProcessing ? "Stop" : "Start",
+                a.disabled = o.isProcessing,
+                a.addEventListener("click", (async () => {
+                    if (o.isProcessing)
+                        u.service.stopProcessing();
+                    else {
+                        const t = r.value.trim();
+                        t && (Be(He, this).track("Loveits Process Started", {
+                            username: t
+                        }),
+                        await u.service.processCreations(t))
+                    }
+                    this.updateMenu()
+                }
+                )),
+                i.appendChild(r),
+                i.appendChild(a),
+                t.appendChild(e),
+                t.appendChild(i),
+                s.appendChild(t)
+            }
+            const p = document.createElement("div");
+            p.className = "discord-section";
+            const l = document.createElement("div");
+            l.className = "discord-title",
+            l.textContent = "Community";
+            const m = document.createElement("a");
+            for (m.href = "https://discord.gg/fametopia",
+            m.className = "discord-button",
+            m.target = "_blank",
+            m.textContent = "Join Discord Server",
+            m.onclick = () => {
+                Be(He, this).track("Discord Link Clicked")
+            }
+            ,
+            p.appendChild(l),
+            p.appendChild(m),
+            s.appendChild(p),
+            t.appendChild(n),
+            t.appendChild(o),
+            t.appendChild(s); Be(Fe, this).children.length > 1; )
+                Be(Fe, this).removeChild(Be(Fe, this).lastChild);
+            Be(Fe, this).appendChild(t)
+        }
+        updatePreview(t) {
+            const e = Be(Fe, this).querySelector(".emote-preview");
+            e && (e.innerHTML = `Current Animation: <span>${Be(Ke, this).formatEmoteName(t)}</span>`)
+        }
+        showNotification(t) {
+            let e = !(arguments.length > 1 && void 0 !== arguments[1]) || arguments[1];
+            const n = document.createElement("div");
+            n.className = "greet-notification",
+            n.innerHTML = `${e ? "✅" : "❌"} ${t}`,
+            document.body.appendChild(n),
+            setTimeout(( () => n.classList.add("show")), 100),
+            setTimeout(( () => {
+                n.classList.remove("show"),
+                setTimeout(( () => n.remove()), 300)
+            }
+            ), 3e3)
+        }
+    }
+    function un(t) {
+        if (!t)
+            return "eu.mspapis.com";
+        const e = i.getUserData(t)
+          , n = e?.name?.split("|")[0];
+        return ["US", "CA"].includes(n) ? "us.mspapis.com" : "eu.mspapis.com"
+    }
+    async function pn() {
+        const t = i.getToken();
+        if (!t)
+            return void this.showNotification("Not logged in", !1);
+        const e = i.getUserData(t)?.profileId;
+        if (!e)
+            return void this.showNotification("Profile ID not found", !1);
+        if (0 === Be(on, this).size)
+            return void this.showNotification("Please select at least one achievement", !1);
+        const n = Ye(dn, this, un).call(this, t);
+        try {
+            for (const i of Be(on, this))
+                await fetch(`https://${n}/profileachievements/v1/profiles/${e}/entities/j68d/achievements/${i}`, {
+                    method: "PUT",
+                    headers: Be(en, this).getHeaders(t),
+                    body: JSON.stringify({
+                        seen: !0
+                    })
+                });
+            this.showNotification("Selected achievements unlocked successfully!", !0),
+            Be(He, this).track("Achievements Unlocked", {
+                count: Be(on, this).size
+            })
+        } catch (t) {
+            this.showNotification("Failed to unlock achievements", !1)
+        }
+    }
+    async function ln() {
+        try {
+            const t = i.getToken();
+            if (!t)
+                return void this.showNotification("Not logged in", !1);
+            const e = i.getUserData(t)?.profileId;
+            if (!e)
+                return void this.showNotification("Profile ID not found", !1);
+            const n = `https://${Ye(dn, this, un).call(this, t)}/profileattributes/v1/profiles/${e}/games/j68d/attributes`
+              , o = await fetch(n, {
+                headers: Be(en, this).getHeaders(t)
+            })
+              , s = await o.json()
+              , r = "Boy" === s.additionalData.Gender ? "Girl" : "Boy";
+            if (!(await fetch(n, {
+                method: "PUT",
+                headers: {
+                    ...Be(en, this).getHeaders(t),
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    ...s,
+                    additionalData: {
+                        ...s.additionalData,
+                        Gender: r
+                    }
+                })
+            })).ok)
+                throw new Error("Failed to update gender");
+            this.showNotification(`Gender swapped to ${r}!`, !0),
+            Be(He, this).track("Gender Swapped", {
+                newGender: r
+            })
+        } catch (t) {
+            this.showNotification("Failed to swap gender", !1)
+        }
+    }
+    function mn() {
+        const t = document.createElement("div");
+        t.className = "achievements-section";
+        const e = document.createElement("div");
+        e.className = "achievements-title",
+        e.textContent = "Unlock Achievements";
+        const n = document.createElement("div");
+        n.className = "achievements-list",
+        Be(an, this).forEach((t => {
+            const e = document.createElement("div");
+            e.className = "achievement-item";
+            const i = document.createElement("input");
+            i.type = "checkbox",
+            i.className = "achievement-checkbox",
+            i.value = t.id,
+            i.checked = Be(on, this).has(t.id),
+            i.id = `achievement-${t.id}`;
+            const o = document.createElement("label");
+            o.className = "achievement-label",
+            o.htmlFor = `achievement-${t.id}`,
+            o.textContent = t.name,
+            e.appendChild(i),
+            e.appendChild(o),
+            e.addEventListener("click", (e => {
+                e.target !== i && (i.checked = !i.checked),
+                i.checked ? Be(on, this).add(t.id) : Be(on, this).delete(t.id)
+            }
+            )),
+            n.appendChild(e)
+        }
+        ));
+        const i = document.createElement("button");
+        return i.className = "status-button",
+        i.textContent = "Unlock Achievements",
+        i.onclick = () => Ye(dn, this, pn).call(this),
+        t.appendChild(e),
+        t.appendChild(n),
+        t.appendChild(i),
+        t
+    }
+    async function gn(t) {
+        if (!Be(nn, this)) {
+            Re(nn, this, !0);
+            try {
+                const e = i.getToken();
+                if (!e)
+                    throw new Error("Not authenticated");
+                const n = i.getUserData(e)?.profileId;
+                if (!n)
+                    throw new Error("Profile ID not found");
+                const o = Ye(dn, this, un).call(this, e)
+                  , s = await fetch(`https://${o}/profileattributes/v1/profiles/${n}/games/j68d/attributes`, {
+                    headers: Be(en, this).getHeaders(e)
+                })
+                  , r = (await s.json()).avatarId
+                  , a = await fetch(`https://${o}/profilegeneratedcontent/v2/profiles/content/${r}`, {
+                    headers: Be(en, this).getHeaders(e)
+                })
+                  , c = (await a.json()).resources.find((t => "rawData" === t.type));
+                if (!c)
+                    throw new Error("Raw data not found");
+                let d = "";
+                d = "eu.mspapis.com" === o ? "ugc-eu.mspcdns.com" : "ugc-us.mspcdns.com";
+                const h = await fetch(`https://${d}/${c.id}`, {
+                    headers: Be(en, this).getHeaders(e)
+                })
+                  , u = await h.arrayBuffer()
+                  , p = btoa(String.fromCharCode(...new Uint8Array(u)))
+                  , l = await new Promise((e => {
+                    const n = new FileReader;
+                    n.onloadend = () => e(n.result.split(",")[1]),
+                    n.readAsDataURL(t)
+                }
+                ))
+                  , m = await fetch("https://img.msp2.lol/api/v1/signature", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        look_data: p,
+                        image_data: l
+                    })
+                });
+                if (!m.ok)
+                    throw new Error("Failed to fetch signature");
+                const g = (await m.json()).signature;
+                if (!g)
+                    throw new Error("Signature not found in response");
+                const f = await fetch("https://img.msp2.lol/api/v1/image/bson", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        look_data: p,
+                        image_data: l
+                    })
+                });
+                if (!f.ok)
+                    throw new Error("Failed to process image");
+                const w = await f.arrayBuffer();
+                if (!(await fetch(`https://${o}/profilegeneratedcontent/v2/profiles/${n}/games/j68d/avatars/${r}`, {
+                    method: "PUT",
+                    headers: {
+                        Authorization: "Bearer " + e,
+                        "User-Agent": "ah",
+                        "Content-Type": "application/bson",
+                        Signature: g
+                    },
+                    body: w
+                })).ok)
+                    throw new Error("Failed to update avatar");
+                this.showNotification("Profile image updated successfully!", !0),
+                Be(He, this).track("Custom Profile Image Updated")
+            } catch (t) {
+                this.showNotification("Failed to update profile image", !1)
+            } finally {
+                Re(nn, this, !1),
+                this.updateMenu()
+            }
+        }
+    }
+    async function fn() {
+        if (!Be(rn, this)) {
+            Re(rn, this, !0);
+            try {
+                const t = i.getToken();
+                if (!t)
+                    return void this.showNotification("Not logged in", !1);
+                const e = i.getUserData(t)?.profileId;
+                if (!e)
+                    return void this.showNotification("Profile ID not found", !1);
+                const n = Ye(dn, this, un).call(this, t)
+                  , o = await fetch(`https://${n}/profileattributes/v1/profiles/${e}/games/j68d/attributes`, {
+                    headers: Be(en, this).getHeaders(t)
+                })
+                  , s = await o.json()
+                  , r = s?.additionalData?.DefaultMyHome;
+                if (!r)
+                    return void this.showNotification("No home ID found", !1);
+                const a = await fetch("https://img.msp2.lol/api/v1/room-bshon", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        selected_room: Be(sn, this)
+                    })
+                });
+                if (!a.ok)
+                    throw new Error("Failed to get room data");
+                const c = await a.json();
+                let d;
+                try {
+                    d = new Uint8Array(atob(c.bson_data).split("").map((t => t.charCodeAt(0))))
+                } catch (t) {
+                    d = c.bson_data
+                }
+                if (!(await fetch(`https://${n}/profilegeneratedcontent/v2/profiles/${e}/games/j68d/content/${r}`, {
+                    method: "PUT",
+                    headers: {
+                        Authorization: "Bearer " + t,
+                        "Content-Type": "application/bson",
+                        Signature: c.signature
+                    },
+                    body: d
+                })).ok)
+                    throw new Error("Failed to update room");
+                this.showNotification("Custom room applied successfully!", !0),
+                Be(He, this).track("Custom Room Applied", {
+                    room: Be(sn, this)
+                })
+            } catch (t) {
+                this.showNotification("Failed to apply custom room", !1)
+            } finally {
+                Re(rn, this, !1),
+                this.updateMenu()
+            }
+        }
+    }
+    function wn() {
+        const t = document.createElement("div");
+        t.className = "emote-section";
+        const e = document.createElement("div");
+        e.className = "emote-header";
+        const n = document.createElement("div");
+        n.className = "emote-title",
+        n.textContent = "Custom Rooms";
+        const i = document.createElement("div");
+        i.className = "emote-status " + (Be(rn, this) ? "inactive" : "active"),
+        i.textContent = Be(rn, this) ? "Applying..." : "Ready",
+        e.appendChild(n),
+        e.appendChild(i);
+        const o = document.createElement("div");
+        o.className = "emote-controls";
+        const s = document.createElement("select");
+        s.className = "emote-select",
+        Be(cn, this).forEach((t => {
+            const e = document.createElement("option");
+            e.value = t.id,
+            e.textContent = t.name,
+            e.selected = t.id === Be(sn, this),
+            s.appendChild(e)
+        }
+        )),
+        s.addEventListener("change", (t => {
+            Re(sn, this, t.target.value),
+            Be(He, this).track("Room Selected", {
+                room: t.target.value
+            })
+        }
+        ));
+        const r = document.createElement("button");
+        return r.className = "emote-toggle",
+        r.textContent = "Apply Changes",
+        r.disabled = Be(rn, this),
+        r.onclick = () => {
+            Ye(dn, this, fn).call(this)
+        }
+        ,
+        o.appendChild(s),
+        o.appendChild(r),
+        t.appendChild(e),
+        t.appendChild(o),
+        t
+    }
+    function bn(t) {
+        return {
+            Services: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjZGQ2ZjQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIzIj48L2NpcmNsZT48cGF0aCBkPSJNMTkuNCAxNWExLjY1IDEuNjUgMCAwIDAgLjMzIDEuODJsLjA2LjA2YTIgMiAwIDAgMSAwIDIuODMgMiAyIDAgMCAxLTIuODMgMGwtLjA2LS4wNmExLjY1IDEuNjUgMCAwIDAtMS44Mi0uMzMgMS42NSAxLjY1IDAgMCAwLTEgMS41MVYyMWEyIDIgMCAwIDEtMiAyIDIgMiAwIDAgMS0yLTJ2LS4wOUExLjY1IDEuNjUgMCAwIDAgOSAxOS40YTEuNjUgMS42NSAwIDAgMC0xLjgyLjMzbC0uMDYuMDZhMiAyIDAgMCAxLTIuODMgMCAyIDIgMCAwIDEgMC0yLjgzbC4wNi0uMDZhMS42NSAxLjY1IDAgMCAwIC4zMy0xLjgyIDEuNjUgMS42NSAwIDAgMC0xLjUxLTFIM2EyIDIgMCAwIDEtMi0yIDIgMiAwIDAgMSAyLTJoLjA5QTEuNjUgMS42NSAwIDAgMCA0LjYgOWExLjY1IDEuNjUgMCAwIDAtLjMzLTEuODJsLS4wNi0uMDZhMiAyIDAgMCAxIDAtMi44MyAyIDIgMCAwIDEgMi44MyAwbC4wNi4wNmExLjY1IDEuNjUgMCAwIDAgMS44Mi4zM0g5YTEuNjUgMS42NSAwIDAgMCAxLTEuNVYzYTIgMiAwIDAgMSAyLTIgMiAyIDAgMCAxIDIgMnYuMDlhMS42NSAxLjY1IDAgMCAwIDEgMS41MSAxLjY1IDEuNjUgMCAwIDAgMS44Mi0uMzNsLjA2LS4wNmEyIDIgMCAwIDEgMi44MyAwIDIgMiAwIDAgMSAwIDIuODNsLS4wNi4wNmExLjY1IDEuNjUgMCAwIDAtLjMzIDEuODJWOWExLjY1IDEuNjUgMCAwIDAgMS41MSAxSDIxYTIgMiAwIDAgMSAyIDIgMiAyIDAgMCAxLTIgMmgtLjA5YTEuNjUgMS42NSAwIDAgMC0xLjUxIDFaIj48L3BhdGg+PC9zdmc+",
+            Soft: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjZGQ2ZjQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgMkw2LjUgMTJIMTdsLTUuNSAxMHoiPjwvcGF0aD48L3N2Zz4=",
+            Misc: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNjZGQ2ZjQiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIxMCI+PC9jaXJjbGU+PGxpbmUgeDE9IjIiIHkxPSIxMiIgeDI9IjIyIiB5Mj0iMTIiPjwvbGluZT48cGF0aCBkPSJNMTIgMmE5LjkzIDkuOTMgMCAwIDEgOCA0IDkuOTMgOS45MyAwIDAgMSA4IDQiPjwvcGF0aD48L3N2Zz4="
+        }[t] || ""
+    }
+    var vn = {
+        t: void 0
+    };
+    function yn(t, e, n) {
+        (function(t, e) {
+            if (e.has(t))
+                throw new TypeError("Cannot initialize the same private elements twice on an object")
+        }
+        )(t, e),
+        e.set(t, n)
+    }
+    function xn(t, e) {
+        return t.get(kn(t, e))
+    }
+    function Mn(t, e, n) {
+        return t.set(kn(t, e), n),
+        n
+    }
+    function kn(t, e, n) {
+        if ("function" == typeof t ? t === e : t.has(e))
+            return arguments.length < 3 ? e : n;
+        throw new TypeError("Private element is not present on this object")
+    }
+    var In = new WeakMap
+      , Sn = new WeakMap
+      , jn = new WeakMap
+      , An = new WeakMap
+      , Wn = new WeakMap
+      , Cn = new WeakMap
+      , Tn = new WeakMap
+      , zn = new WeakMap
+      , Dn = new WeakMap
+      , En = new WeakMap
+      , Nn = new WeakMap
+      , Pn = new WeakMap;
+    class $n {
+        constructor() {
+            yn(this, In, !0),
+            yn(this, Sn, void 0),
+            yn(this, jn, void 0),
+            yn(this, An, []),
+            yn(this, Wn, {
+                success: 0,
+                failed: 0,
+                total: 0
+            }),
+            yn(this, Cn, !1),
+            yn(this, Tn, null),
+            yn(this, zn, !1),
+            yn(this, Dn, null),
+            yn(this, En, 3e3),
+            yn(this, Nn, 5),
+            yn(this, Pn, 100),
+            Mn(Sn, this, g.getInstance()),
+            Mn(jn, this, A.getInstance()),
+            this.initialize()
+        }
+        initialize() {
+            this.loadTokens()
+        }
+        setMenuUpdateCallback(t) {
+            Mn(Tn, this, t)
+        }
+        async loadTokens() {
+            try {
+                const t = await fetch("https://loveit.msp2.lol/alltokens")
+                  , e = await t.json();
+                Mn(An, this, e.tokens.map((t => t.jwt))),
+                xn(Sn, this).track("Loveits tokens loaded", {
+                    count: xn(An, this).length
+                })
+            } catch (t) {}
+        }
+        getStats() {
+            return {
+                ...xn(Wn, this),
+                tokens: xn(An, this).length,
+                isProcessing: xn(Cn, this)
+            }
+        }
+        parseJWT(t) {
+            try {
+                const e = t.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")
+                  , n = decodeURIComponent(atob(e).split("").map((t => "%" + ("00" + t.charCodeAt(0).toString(16)).slice(-2))).join(""));
+                return JSON.parse(n)
+            } catch (t) {
+                return null
+            }
+        }
+        async fetchWithTimeout(t, e) {
+            const n = new AbortController
+              , i = setTimeout(( () => n.abort()), xn(En, this));
+            try {
+                return await fetch(t, {
+                    ...e,
+                    signal: n.signal
+                })
+            } finally {
+                clearTimeout(i)
+            }
+        }
+        async getUserCreations(t, e) {
+            if (xn(zn, this))
+                throw new Error("Operation cancelled");
+            try {
+                const n = i.getToken();
+                if (!n)
+                    throw new Error("No authentication token found");
+                const o = await this.fetchWithTimeout("https://eu.mspapis.com/edgeugc/graphql", {
+                    method: "POST",
+                    headers: {
+                        ...xn(jn, this).getHeaders(n)
+                    },
+                    body: JSON.stringify({
+                        query: "query GetUserUGCs($gameId: String!, $profileId: String!, $contentType: String, $page: String, $pageSize: Int) {\n                        recentUgcsByProfile(input:{gameId: $gameId, profileId: $profileId, contentType: $contentType, page: $page, pageSize: $pageSize}) {\n                            nextPage entries {id title lastEditedDate lifecycleStatus owner type commentCount privacyStatus reactions {reactionTypeId count} resources {type id} profile {id name membership {lastTierExpiry} avatar(preferredGameId: $gameId) {face full}}}\n                        }\n                    }",
+                        variables: JSON.stringify({
+                            gameId: "j68d",
+                            profileId: t,
+                            contentType: e,
+                            page: "",
+                            pageSize: 50
+                        })
+                    })
+                })
+                  , s = await o.json();
+                return s?.data?.recentUgcsByProfile?.entries?.map((t => t.id)) || []
+            } catch (t) {
+                if ("AbortError" === t.name)
+                    throw new Error("Operation cancelled or timed out");
+                return []
+            }
+        }
+        async getWaydId(t) {
+            if (xn(zn, this))
+                throw new Error("Operation cancelled");
+            try {
+                const e = i.getToken();
+                if (!e)
+                    throw new Error("No authentication token found");
+                const n = await this.fetchWithTimeout(`https://eu.mspapis.com/profileattributes/v1/profiles/${t}/games/j68d/attributes`, {
+                    headers: xn(jn, this).getHeaders(e)
+                })
+                  , o = await n.json();
+                return o?.additionalData?.WAYD || null
+            } catch (t) {
+                if ("AbortError" === t.name)
+                    throw new Error("Operation cancelled or timed out");
+                return null
+            }
+        }
+        async sendLoveit(t, e) {
+            if (xn(zn, this))
+                throw new Error("Operation cancelled");
+            try {
+                const n = this.parseJWT(e);
+                return !!n?.profileId && (await this.fetchWithTimeout(`https://eu.mspapis.com/profilereactions/v1/profiles/${n.profileId}/reactions/sources/profilegeneratedcontent/entities/${t}`, {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${e}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        reactionTypeId: "loveit",
+                        entityGameId: "j68d"
+                    })
+                })).ok
+            } catch (t) {
+                if ("AbortError" === t.name)
+                    throw new Error("Operation cancelled or timed out");
+                return !1
+            }
+        }
+        stopProcessing() {
+            xn(Cn, this) && (Mn(zn, this, !0),
+            xn(Dn, this)?.abort(),
+            Mn(Dn, this, null),
+            xn(Tn, this)?.call(this))
+        }
+        shuffleArray(t) {
+            for (let e = t.length - 1; e > 0; e--) {
+                const n = Math.floor(Math.random() * (e + 1));
+                [t[e],t[n]] = [t[n], t[e]]
+            }
+            return t
+        }
+        async processBatch(t) {
+            return Promise.all(t.map((async t => {
+                let {creationId: e, token: n} = t;
+                try {
+                    return {
+                        success: await this.sendLoveit(e, n),
+                        error: null
+                    }
+                } catch (t) {
+                    return {
+                        success: !1,
+                        error: t
+                    }
+                }
+            }
+            )))
+        }
+        async processCreations(t) {
+            if (xn(Cn, this))
+                return;
+            let e;
+            Mn(Cn, this, !0),
+            Mn(zn, this, !1),
+            Mn(Dn, this, new AbortController),
+            Mn(Wn, this, {
+                success: 0,
+                failed: 0,
+                total: 0
+            }),
+            xn(Tn, this)?.call(this);
+            try {
+                const n = await this.getUserCreations(t, "Looks");
+                if (xn(zn, this))
+                    throw new Error("Operation cancelled");
+                const i = await this.getWaydId(t);
+                if (xn(zn, this))
+                    throw new Error("Operation cancelled");
+                const o = [...n];
+                i && o.push(i);
+                const s = [];
+                for (const t of o)
+                    for (const e of xn(An, this))
+                        s.push({
+                            creationId: t,
+                            token: e
+                        });
+                this.shuffleArray(s),
+                xn(Wn, this).total = s.length,
+                xn(Tn, this)?.call(this);
+                for (let t = 0; t < s.length; t += xn(Nn, this)) {
+                    if (xn(zn, this))
+                        throw new Error("Operation cancelled");
+                    const n = s.slice(t, t + xn(Nn, this));
+                    (await this.processBatch(n)).forEach((t => {
+                        let {success: e} = t;
+                        e ? xn(Wn, this).success++ : xn(Wn, this).failed++
+                    }
+                    )),
+                    clearTimeout(e),
+                    e = setTimeout(( () => {
+                        xn(Tn, this)?.call(this)
+                    }
+                    ), xn(Pn, this)),
+                    await new Promise((t => setTimeout(t, 50)))
+                }
+                xn(Sn, this).track("Loveits process completed", xn(Wn, this))
+            } catch (t) {
+                "Operation cancelled" === t.message && xn(Sn, this).track("Loveits process cancelled", xn(Wn, this))
+            } finally {
+                Mn(Cn, this, !1),
+                Mn(zn, this, !1),
+                Mn(Dn, this, null),
+                clearTimeout(e),
+                xn(Tn, this)?.call(this)
+            }
+        }
+        toggle() {
+            Mn(In, this, !xn(In, this))
+        }
+    }
+    const On = () => {
+        const t = g.getInstance()
+          , e = (A.getInstance(),
+        new R)
+          , n = new gt
+          , i = new St
+          , o = new Bt
+          , s = new oe
+          , r = le.getInstance()
+          , a = new je
+          , c = new _e
+          , d = new $n
+          , h = hn.getInstance();
+        h.registerService("Auto Star Quiz", n, "Automatically plays StarQuiz.", "Can make mistakes"),
+        h.registerService("Item Layering", i, "Wear multiple items of the same category at the same time."),
+        h.registerService("Shop Spoofer", o, "Free items in Shop for easy softing."),
+        h.registerService("Bypass Chat Filter", s, "Bypass chat filtering in chatrooms and private messages."),
+        h.registerService("Status Mod", c, "Edit your status without losing likes & comments."),
+        h.registerService("Emote Service", r, "Change your emote animation."),
+        h.registerService("Loveits Service", d, "Send loveits to user creations."),
+        o.setEnabled({
+            diamondPacks: !0
+        }),
+        Object.defineProperties(window, {
+            msp2Client: {
+                value: e,
+                writable: !1,
+                configurable: !1
+            },
+            autoStarQuiz: {
+                value: n,
+                writable: !1,
+                configurable: !1
+            },
+            greetingsService: {
+                value: a,
+                writable: !1,
+                configurable: !1
+            }
+        }),
+        setTimeout(( () => {
+            Object.defineProperty(window, "emoteService", {
+                value: r,
+                writable: !1,
+                configurable: !1
+            })
+        }
+        ), 3e3),
+        t.track("Client Started")
+    }
+    ;
+    "loading" === document.readyState ? document.addEventListener("DOMContentLoaded", On) : On();
+    const _n = {
+        initialize: On
+    };
+    return e.default
+}
+)()));
