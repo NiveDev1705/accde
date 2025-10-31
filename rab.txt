@@ -1,1 +1,3490 @@
-g
+import json, time, random, queue, threading, base64
+from typing import List, Dict, Optional
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog, scrolledtext
+from tkinter.scrolledtext import ScrolledText
+import requests, cloudscraper
+import binascii
+import struct
+import zlib
+import os
+import sys
+import random
+import re
+import uuid
+import urllib.parse
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from PIL import Image, ImageTk
+from auth import login
+from ugc  import load_ugcs, loveit
+
+def resource_path(relative_path):
+    base_path = getattr(sys, '_MEIPASS', os.path.abspath(os.path.dirname(__file__)))
+    return os.path.join(base_path, relative_path)
+
+# --- kleiner, animierter ToggleSwitch (Canvas) ---
+class AnimatedToggleSwitch(ttk.Frame):
+    def __init__(self, master, value=False, on_toggle=None, width=44, height=24):
+        super().__init__(master)
+        self.on_toggle = on_toggle
+        self.w = width
+        self.h = height
+        self.pad = 2
+        self._is_on = bool(value)
+        self._animating = False
+
+        self.canvas = tk.Canvas(self, width=self.w, height=self.h, highlightthickness=0, bg=self._bg())
+        self.canvas.pack()
+        self.canvas.bind("<Button-1>", self._click)
+
+        # IDs
+        self._track_id = None
+        self._knob_id  = None
+        self._draw_static()
+        self._place_knob(instant=True)
+
+    def set(self, value: bool, trigger: bool = True):
+        """Extern Status setzen (ohne Animation)."""
+        self._is_on = bool(value)
+        self._place_knob(instant=True)
+        if trigger and self.on_toggle:
+            self.on_toggle(self._is_on)
+
+    def _bg(self):
+        """Hintergrundfarbe robust ermitteln (ttk-sicher)."""
+        try:
+            return self.master.cget("background")
+        except Exception:
+            pass
+        try:
+            style = ttk.Style()
+            try:
+                style_name = self.master.cget("style") or ""
+            except Exception:
+                style_name = ""
+            candidates = [style_name, self.master.winfo_class(), "TFrame", "TLabelframe"]
+            for name in candidates:
+                if not name:
+                    continue
+                col = style.lookup(name, "background")
+                if col:
+                    return col
+        except Exception:
+            pass
+        return "#FFFFFF"
+
+    def _draw_static(self):
+        self.canvas.delete("all")
+        radius = self.h / 2
+        fill = "#22c55e" if self._is_on else "#4b5563"
+        self._track_id = self._round_rect(self.pad, self.pad, self.w - self.pad, self.h - self.pad,
+                                          radius - 2, fill=fill, outline="")
+        size = self.h - 2 * self.pad
+        self._knob_id = self.canvas.create_oval(self.pad, self.pad, self.pad + size, self.pad + size,
+                                                fill="#FFFFFF", outline="")
+
+    def _round_rect(self, x1, y1, x2, y2, r, **kwargs):
+        points = [
+            x1 + r, y1, x2 - r, y1,
+            x2, y1, x2, y1 + r,
+            x2, y2 - r, x2, y2,
+            x2 - r, y2, x1 + r, y2,
+            x1, y2, x1, y2 - r,
+            x1, y1 + r, x1, y1,
+        ]
+        return self.canvas.create_polygon(points, smooth=True, **kwargs)
+
+    def _click(self, _evt=None):
+        if self._animating:
+            return
+        target = not self._is_on
+        self._animate_to(target)
+
+    def _place_knob(self, instant=False):
+        size = self.h - 2 * self.pad
+        left_x  = self.pad
+        right_x = self.w - self.pad - size
+        x = right_x if self._is_on else left_x
+        self.canvas.coords(self._knob_id, x, self.pad, x + size, self.pad + size)
+        self.canvas.itemconfig(self._track_id, fill="#22c55e" if self._is_on else "#4b5563")
+
+    def _animate_to(self, target_on: bool):
+        """Animiert zum Zielzustand und ruft den Callback NACH der Animation auf."""
+        if target_on == self._is_on:
+            # Nichts zu tun
+            self._place_knob(instant=True)
+            return
+
+        self._animating = True
+        steps = 8
+        dur_ms = 90
+
+        size = self.h - 2 * self.pad
+        left_x  = self.pad
+        right_x = self.w - self.pad - size
+
+        # Start/Ziel
+        coords = self.canvas.coords(self._knob_id)
+        x_now = coords[0] if coords else (right_x if self._is_on else left_x)
+        x_end = right_x if target_on else left_x
+        delta = (x_end - x_now) / steps if steps else 0
+
+        # Farbverlauf
+        def hex_to_rgb(h):
+            h = h.lstrip("#")
+            return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+        def rgb_to_hex(t):
+            return f"#{t[0]:02x}{t[1]:02x}{t[2]:02x}"
+        def lerp(a, b, t): return int(a + (b - a) * t)
+
+        start_col = hex_to_rgb(self.canvas.itemcget(self._track_id, "fill") or ("#22c55e" if self._is_on else "#4b5563"))
+        end_col   = hex_to_rgb("#22c55e" if target_on else "#4b5563")
+
+        def step(i=0, x=x_now):
+            t = i / steps if steps else 1
+            r = lerp(start_col[0], end_col[0], t)
+            g = lerp(start_col[1], end_col[1], t)
+            b = lerp(start_col[2], end_col[2], t)
+            self.canvas.itemconfig(self._track_id, fill=rgb_to_hex((r, g, b)))
+            self.canvas.coords(self._knob_id, x, self.pad, x + size, self.pad + size)
+            if i < steps:
+                self.after(max(1, dur_ms // steps), step, i + 1, x + delta)
+            else:
+                # Ziel fixieren & Status übernehmen
+                self._is_on = target_on
+                self._place_knob(instant=True)
+                self._animating = False
+                if self.on_toggle:
+                    # Callback erst am Ende ausführen
+                    try:
+                        self.on_toggle(self._is_on)
+                    except Exception:
+                        pass
+
+        step()
+
+
+# -------------------- Style (dark blue) --------------------
+def setup_style(root: tk.Tk):
+    style = ttk.Style(root)
+    style.theme_use("clam")
+
+    # Schwarz-Rot-Farbschema
+    bg  = "#000000"   # tiefes Schwarz
+    fg  = "#ffffff"   # Weiß für Text
+    acc = "#941515"   # kräftiges Rot
+    hl  = "#000000"   # dunkles Grau
+
+    root.configure(bg=bg)
+    style.configure(".", background=bg, foreground=fg, font=("Comic Sans MS", 10))
+    style.configure("TFrame", background=bg)
+    style.configure("TLabel", background=bg, foreground=fg)
+    style.configure("TLabelFrame", background=bg, foreground=acc, font=("Comic Sans MS", 10, "bold"))
+    style.configure("TButton", padding=6, relief="flat", background=acc, foreground="white")
+    style.map("TButton", background=[("active", "#941515")])
+    style.configure("TEntry", fieldbackground="#000000", foreground=fg, insertcolor=fg)
+    style.configure("TNotebook", background=bg)
+    style.configure("TNotebook.Tab", background=hl, foreground=fg, padding=(12, 6))
+    style.map("TNotebook.Tab", background=[("selected", acc)], foreground=[("selected", "white")])
+
+
+# -------------------- Shared Tokens -----------------------
+shared_tokens: List[Dict] = []
+
+
+# -------------------- LoveIt Tab --------------------------
+class LoveItTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.ugcs: List[Dict] = []
+        self.log_q, self.prog_q = queue.Queue(), queue.Queue()
+        self._build(); self._poll()
+
+    def _build(self):
+        pad = 6
+        lf = ttk.LabelFrame(self, text="Login"); lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w"); 
+        self.e_user = ttk.Entry(lf); self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w"); 
+        self.e_pw = ttk.Entry(lf, show="*"); self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w"); 
+        self.e_cty = ttk.Entry(lf); self.e_cty.insert(0,"DE"); self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3,columnspan=2,pady=pad)
+
+        self.tok_var = tk.StringVar(value="Tokens: 0")
+        ttk.Label(lf, textvariable=self.tok_var).grid(row=4,columnspan=2)
+
+        tf = ttk.Frame(self); tf.pack(fill="x", padx=pad)
+        ttk.Button(tf, text="Load tokens.json", command=self.load_tokens).pack(side="left", padx=pad)
+
+        ugcf = ttk.LabelFrame(self, text="UGCs"); ugcf.pack(fill="both",expand=True,padx=pad,pady=pad)
+        self.lb = tk.Listbox(ugcf, selectmode=tk.MULTIPLE, bg="#000000", fg="#ffffff")
+        self.lb.pack(side="left",fill="both",expand=True)
+        sb  = ttk.Scrollbar(ugcf, command=self.lb.yview); sb.pack(side="right",fill="y")
+        self.lb.config(yscrollcommand=sb.set)
+
+        cf = ttk.LabelFrame(self, text="➕ Custom ID"); cf.pack(fill="x", padx=pad)
+        self.e_custom = ttk.Entry(cf); self.e_custom.pack(side="left",fill="x",expand=True,padx=pad)
+        ttk.Button(cf, text="Add", command=self.add_custom).pack(side="right",padx=pad)
+
+        bf = ttk.Frame(self); bf.pack(fill="x",padx=pad,pady=pad)
+        self.btn_load = ttk.Button(bf,text="Load UGCs (first token)",command=self.load_ugcs); self.btn_load.pack(side="left",padx=pad)
+        self.btn_love = ttk.Button(bf,text="Send LoveIt",state="disabled",command=self.start_worker); self.btn_love.pack(side="left",padx=pad)
+
+        self.prog = ttk.Progressbar(self,maximum=100); self.prog.pack(fill="x",padx=pad)
+        self.log  = ScrolledText(self, height=8, state="disabled", bg="#000000", fg="#ffffff", insertbackground="#ffffff")
+        self.log.pack(fill="both",expand=True,padx=pad,pady=pad)
+
+    def login_click(self):
+        u,p,c = self.e_user.get().strip(), self.e_pw.get().strip(), self.e_cty.get().strip().upper()
+        if not all([u,p,c]): return messagebox.showwarning("Input","Missing fields")
+        try:
+            info = login(u,p,c)
+            shared_tokens.append(info); self.tok_var.set(f"Tokens: {len(shared_tokens)}")
+            messagebox.showinfo("Login","Token saved")
+        except Exception as e:
+            messagebox.showerror("Login",str(e))
+
+    def load_tokens(self):
+        fp = filedialog.askopenfilename(title="tokens.json",filetypes=[("JSON","*.json")])
+        if fp:
+            try:
+                data=json.load(open(fp,encoding="utf-8"))
+                if isinstance(data,list):
+                    shared_tokens.extend(data); self.tok_var.set(f"Tokens: {len(shared_tokens)}")
+            except Exception as e:
+                messagebox.showerror("tokens.json", str(e))
+
+    def load_ugcs(self):
+        if not shared_tokens: return
+        tok=shared_tokens[0]
+        try:
+            self.ugcs=load_ugcs(tok["access_token"],tok["profile_id"])
+        except Exception as e:
+            return messagebox.showerror("UGCs",str(e))
+        self.lb.delete(0,tk.END); [self.lb.insert(tk.END,f"{u['id']} | {u.get('title','')}") for u in self.ugcs]
+        self.btn_love["state"]="normal"
+
+    def add_custom(self):
+        ids=[i for i in self.e_custom.get().replace(",", " ").split() if i]
+        self.e_custom.delete(0,tk.END)
+        for i in ids:
+            if not any(u["id"]==i for u in self.ugcs):
+                self.ugcs.append({"id":i}); self.lb.insert(tk.END,f"{i} | Custom")
+
+    def start_worker(self):
+        sel=[self.ugcs[i] for i in self.lb.curselection()]
+        if not sel: return
+        total=len(sel)*len(shared_tokens)
+        self.prog.config(maximum=total,value=0)
+        self.log.config(state="normal"); self.log.delete("1.0",tk.END); self.log.config(state="disabled")
+        self.btn_love["state"]="disabled"
+        threading.Thread(target=self.worker,args=(sel,total),daemon=True).start()
+
+    def worker(self,sel,total):
+        done=0
+        for tok in shared_tokens:
+            for u in sel:
+                ok=loveit(tok["access_token"],tok["profile_id"],u["id"])
+                self.log_q.put(f"[{'OK' if ok else 'FAIL'}] {u['id']}"); done+=1; self.prog_q.put(done)
+        self.log_q.put("Finished"); self.prog_q.put(-1)
+
+    def _poll(self):
+        while not self.log_q.empty(): self._append(self.log_q.get())
+        while not self.prog_q.empty():
+            v=self.prog_q.get()
+            if v==-1: self.btn_love["state"]="normal"
+            else: self.prog["value"]=v
+        self.after(100,self._poll)
+
+    def _append(self,txt):
+        self.log.config(state="normal"); self.log.insert(tk.END,txt+"\n"); self.log.see(tk.END); self.log.config(state="disabled")
+
+# -------------------- Token Runner Tab --------------------
+class TokenRunnerTab(ttk.Frame):
+    LOGIN_URL    = "https://eu-secure.mspapis.com/loginidentity/connect/token"
+    ACCOUNTS_FILE = "token.txt"     # <- LOKALE Datei mit user:pass:country
+    PROXIES_FILE  = "proxies.txt"   # <- LOKALE Datei mit user:pass@host:port
+
+    def __init__(self, master):
+        super().__init__(master)
+        self.running = False
+        self.success = 0
+
+        # Round-robin Proxies
+        self.proxies = []
+        self.proxy_idx = 0
+        self.proxy_lock = threading.Lock()
+
+        self.thread_count = tk.IntVar(value=3)
+        self.delay_seconds = tk.IntVar(value=3)
+
+        self._build()
+        self._load_proxies()
+        self._load_accounts()
+
+    # ---------- UI ----------
+    def _build(self):
+        pad = 6
+
+        top = ttk.Frame(self)
+        top.pack(fill="x", padx=pad, pady=pad)
+
+        self.btn = ttk.Button(top, text="Start", command=self.toggle)
+        self.btn.pack(side="left", padx=pad)
+
+        ttk.Button(top, text="🔄 Proxies neu laden", command=self._load_proxies).pack(side="left", padx=pad)
+        ttk.Button(top, text="📄 Accounts neu laden", command=self._load_accounts).pack(side="left", padx=pad)
+        ttk.Button(top, text="Manual", command=self.manual_win).pack(side="left", padx=pad)
+
+        self.lbl = ttk.Label(self, text="OK Tokens: 0", foreground="lightgreen")
+        self.lbl.pack()
+
+        tf = ttk.Frame(self)
+        tf.pack(fill="x", padx=pad)
+
+        ttk.Label(tf, text="Threads:").pack(side="left", padx=pad)
+        ttk.Spinbox(tf, from_=1, to=50, textvariable=self.thread_count, width=5).pack(side="left")
+
+        ttk.Label(tf, text="Delay (s):").pack(side="left", padx=pad)
+        ttk.Spinbox(tf, from_=0, to=10, textvariable=self.delay_seconds, width=5).pack(side="left")
+
+        self.log = ScrolledText(self, height=15, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+        # kleine Statuslabels
+        stat = ttk.Frame(self); stat.pack(fill="x", padx=pad, pady=(0, pad))
+        self.acc_count_var = tk.StringVar(value="Accounts: 0")
+        self.prx_count_var = tk.StringVar(value="Proxies: 0")
+        ttk.Label(stat, textvariable=self.acc_count_var).pack(side="left")
+        ttk.Label(stat, textvariable=self.prx_count_var).pack(side="left", padx=12)
+
+    # ---------- Logging ----------
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_config(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        self.log.see(tk.END)
+
+    def inc_ok(self):
+        self.success += 1
+        self.lbl.config(text=f"OK Tokens: {self.success}")
+
+    # ---------- Daten laden ----------
+    def _base_dir(self):
+        return os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else __file__)
+
+    def _load_proxies(self):
+        path = os.path.join(self._base_dir(), self.PROXIES_FILE)
+        self.proxies.clear()
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    # Erwartetes Format: user:pass@host:port (dein Beispiel)
+                    # z.B. user-NiveDev:Pwd@eu.lunaproxy.com:12233
+                    if "@" in line and ":" in line:
+                        # baue http(s) Proxy-URL
+                        proxy_url = f"http://{line}"
+                        self.proxies.append({"http": proxy_url, "https": proxy_url})
+            self.prx_count_var.set(f"Proxies: {len(self.proxies)}")
+            self.write(f"[proxies] geladen: {len(self.proxies)}", "cyan")
+        except Exception as e:
+            self.write(f"[proxies] Fehler beim Laden: {e}", "red")
+            self.prx_count_var.set("Proxies: 0")
+
+    def _load_accounts(self):
+        self.accounts = []  # Liste von Tupeln (user, pass, country)
+        path = os.path.join(self._base_dir(), self.ACCOUNTS_FILE)
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    l = line.strip()
+                    if not l or l.startswith("#"):
+                        continue
+                    parts = l.split(":")
+                    if len(parts) == 1:
+                        # nur username -> kein pass, skip
+                        continue
+                    if len(parts) == 2:
+                        user, pw = parts
+                        ctry = "de"
+                    else:
+                        user, pw, ctry = parts[0], parts[1], (parts[2] or "de")
+                    self.accounts.append((user.strip(), pw.strip(), ctry.strip().lower()))
+            self.acc_count_var.set(f"Accounts: {len(self.accounts)}")
+            self.write(f"[accounts] geladen: {len(self.accounts)}", "cyan")
+        except FileNotFoundError:
+            self.write(f"[accounts] {self.ACCOUNTS_FILE} nicht gefunden", "red")
+            self.acc_count_var.set("Accounts: 0")
+        except Exception as e:
+            self.write(f"[accounts] Fehler beim Laden: {e}", "red")
+            self.acc_count_var.set("Accounts: 0")
+
+    # ---------- Proxy RR ----------
+    def _next_proxy(self):
+        if not self.proxies:
+            return None
+        with self.proxy_lock:
+            prx = self.proxies[self.proxy_idx % len(self.proxies)]
+            self.proxy_idx += 1
+            return prx
+
+    # ---------- Worker ----------
+    def worker(self, q: queue.Queue):
+        timeout_streak = 0
+        while self.running:
+            try:
+                u, p, c = q.get_nowait()
+            except queue.Empty:
+                break
+
+            try:
+                prx = self._next_proxy()
+                info = login(u, p, c, proxies=prx)  # dein vorhandenes login() nutzt proxies=
+                shared_tokens.append(info)
+                self.write(f"[OK] {u}", "green")
+                self.inc_ok()
+                timeout_streak = 0
+                time.sleep(self.delay_seconds.get())
+            except requests.exceptions.Timeout:
+                timeout_streak += 1
+                self.write(f"[TIMEOUT] {u}", "orange")
+                if timeout_streak >= 7:
+                    self.write("[INFO] 7x Timeout → Warte 30 Sekunden...", "yellow")
+                    time.sleep(120)
+                    timeout_streak = 0
+            except Exception as e:
+                self.write(f"[FAIL] {u} ({e})", "red")
+                timeout_streak = 0
+
+            q.task_done()
+
+    # ---------- Start/Stop ----------
+    def toggle(self):
+        self.running = not self.running
+        self.btn.config(text="Stop" if self.running else "Start")
+        if not self.running:
+            return
+
+        if not getattr(self, "accounts", None):
+            self._load_accounts()
+        if not self.accounts:
+            self.write("[WARN] Keine Accounts geladen.", "yellow")
+            self.running = False
+            self.btn.config(text="Start")
+            return
+
+        q = queue.Queue()
+        for a in self.accounts:
+            q.put(a)
+
+        for _ in range(self.thread_count.get()):
+            threading.Thread(target=self.worker, args=(q,), daemon=True).start()
+
+    # ---------- Manual Login ----------
+    def manual_win(self):
+        w = tk.Toplevel(self)
+        w.title("Manual")
+        w.geometry("260x200")
+
+        ttk.Label(w, text="User").pack()
+        e_u = ttk.Entry(w); e_u.pack()
+
+        ttk.Label(w, text="Pass").pack()
+        e_p = ttk.Entry(w, show="*"); e_p.pack()
+
+        ttk.Label(w, text="Country").pack()
+        e_c = ttk.Entry(w); e_c.insert(0, "de"); e_c.pack()
+
+        def run():
+            try:
+                prx = self._next_proxy()
+                info = login(e_u.get(), e_p.get(), e_c.get(), proxies=prx)
+                shared_tokens.append(info)
+                self.write("[OK] manual", "green")
+                self.inc_ok()
+            except Exception as e:
+                self.write(f"[FAIL] manual ({e})", "red")
+            w.destroy()
+
+        ttk.Button(w, text="Login", command=run).pack(pady=8)
+
+# -------------------- Gender Switch Tab --------------------
+class GenderSwitchTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.token_info = None
+        self.scraper = cloudscraper.create_scraper()
+        self._build()
+
+    def _build(self):
+        pad = 6
+        lf = ttk.LabelFrame(self, text="Login"); lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf); self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*"); self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf); self.e_cty.insert(0,"DE"); self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+
+        self.gender_var = tk.StringVar(value="Geschlecht: Unbekannt")
+        ttk.Label(self, textvariable=self.gender_var).pack(pady=pad)
+
+        ttk.Button(self, text="🔄 Geschlecht wechseln", command=self.toggle_gender).pack(pady=pad)
+
+        self.log = ScrolledText(self, height=10, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+
+        try:
+            self.token_info = login(u, p, c)  # liefert access_token + profile_id
+            gender = self.get_gender()
+            self.gender_var.set(f"Geschlecht: {gender}")
+            self.write(f"[OK] Eingeloggt als {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def get_gender(self):
+        url = f"https://eu.mspapis.com/profileattributes/v1/profiles/{self.token_info['profile_id']}/games/j68d/attributes"
+        headers = {
+            "Authorization": f"Bearer {self.token_info['access_token']}",
+            "Accept": "application/json"
+        }
+        r = self.scraper.get(url, headers=headers)
+        r.raise_for_status()
+        data = r.json()
+        return data.get("additionalData", {}).get("Gender", "Unbekannt")
+
+    def toggle_gender(self):
+        if not self.token_info:
+            return messagebox.showwarning("Nicht eingeloggt", "Bitte zuerst einloggen.")
+
+        try:
+            url = f"https://eu.mspapis.com/profileattributes/v1/profiles/{self.token_info['profile_id']}/games/j68d/attributes"
+            headers = {
+                "Authorization": f"Bearer {self.token_info['access_token']}",
+                "Accept": "application/json"
+            }
+
+            # Aktuellen Status abrufen
+            r = self.scraper.get(url, headers=headers)
+            r.raise_for_status()
+            data = r.json()
+
+            current_gender = data["additionalData"].get("Gender", "Boy")
+            new_gender = "Girl" if current_gender == "Boy" else "Boy"
+            data["additionalData"]["Gender"] = new_gender
+
+            headers["Content-Type"] = "application/json"
+            put = self.scraper.put(url, headers=headers, json=data)
+            put.raise_for_status()
+
+            self.gender_var.set(f"Geschlecht: {new_gender}")
+            self.write(f"[OK] Geschlecht geändert zu {new_gender}", "green")
+            self.write(f"Logge dich neu ein!", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] {e}", "red")
+            messagebox.showerror("Fehler", str(e))
+
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_config(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        self.log.see(tk.END)
+
+# -------------------- Autograph Tab --------------------
+class AutographTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.accounts = []
+        self.scraper = cloudscraper.create_scraper()
+        self.auto_running = False
+        self.auto_thread = None
+        self._build()
+        self._start_token_refresh_thread()
+
+    def _build(self):
+        pad = 6
+        lf = ttk.LabelFrame(self, text="Login")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf)
+        self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*")
+        self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf)
+        self.e_cty.insert(0, "DE")
+        self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+        ttk.Button(lf, text="📜 ListeLogin", command=lambda: self.login_from_file("autograph.txt")).grid(row=4, columnspan=2, pady=(0, pad))
+        ttk.Button(lf, text="📜 ListeLogin2", command=lambda: self.login_from_file("autograph2.txt")).grid(row=5, columnspan=2, pady=(0, pad))
+
+        self.account_list = tk.Listbox(self, height=4, bg="#000000", fg="white", selectbackground="#000000", selectforeground="white")
+        self.account_list.pack(fill="x", padx=pad, pady=(pad, 0))
+
+        ttk.Button(self, text="❌ Entfernen", command=self.remove_selected_account).pack(pady=(0, pad))
+
+        targetf = ttk.LabelFrame(self, text="Autogramm senden an:")
+        targetf.pack(fill="x", padx=pad, pady=pad)
+
+        self.e_target = ttk.Entry(targetf)
+        self.e_target.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Button(self, text="▶️ Start", command=self.start_auto).pack(pady=pad)
+        ttk.Button(self, text="⏹️ Stop", command=self.stop_auto).pack(pady=(0, pad))
+
+        self.log = ScrolledText(self, height=10, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_from_file(self, filename):
+        try:
+            base_dir = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else __file__)
+            full_path = os.path.join(base_dir, filename)
+            self.write(f"[DEBUG] Suche Datei: {full_path}", "yellow")
+
+            with open(full_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+
+            for line in lines:
+                parts = line.strip().split(":")
+                if len(parts) < 2:
+                    continue
+                u = parts[0].strip()
+                p = parts[1].strip()
+                c = parts[2].strip().upper() if len(parts) > 2 else "DE"
+                try:
+                    token_info = login(u, p, c)
+                    token_info["username"] = u
+                    token_info["password"] = p
+                    token_info["country"] = c
+                    self.accounts.append(token_info)
+                    self.account_list.insert(tk.END, u)
+                    self.write(f"[OK] Eingeloggt als {u}", "green")
+                except Exception as e:
+                    self.write(f"[FEHLER] {u}: {e}", "red")
+
+        except Exception as e:
+            self.write(f"[FEHLER] Datei konnte nicht gelesen werden: {e}", "red")
+
+    def remove_selected_account(self):
+        selected = self.account_list.curselection()
+        if not selected:
+            return
+        index = selected[0]
+        acc = self.accounts[index]
+        self.write(f"[INFO] Account entfernt: {acc['username']}", "yellow")
+        self.account_list.delete(index)
+        del self.accounts[index]
+
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_config(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        if int(self.log.index("end-1c").split(".")[0]) > 50:
+            self.log.delete("1.0", "2.0")
+        self.log.see(tk.END)
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+        try:
+            token_info = login(u, p, c)
+            token_info["username"] = u
+            token_info["password"] = p
+            token_info["country"] = c
+            self.accounts.append(token_info)
+            self.account_list.insert(tk.END, u)
+            self.write(f"[OK] Eingeloggt als {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def find_profile_id(self, username, region):
+        try:
+            url = "https://eu.mspapis.com/edgerelationships/graphql/graphql"
+            headers = {
+                "Authorization": f"Bearer {self.token_info['access_token']}",
+                "Content-Type": "application/json"
+            }
+            query = """
+            query GetProfileSearch($region: String!, $startsWith: String!, $pageSize: Int, $currentPage: Int, $preferredGameId: String!) {
+                findProfiles(region: $region, nameBeginsWith: $startsWith, pageSize: $pageSize, page: $currentPage) {
+                    totalCount
+                    nodes {
+                        id
+                        avatar(preferredGameId: $preferredGameId) {
+                            gameId
+                            face
+                            full
+                        }
+                    }
+                }
+            }
+            """
+            variables = {
+                "region": region,
+                "startsWith": username,
+                "pageSize": 50,
+                "currentPage": 1,
+                "preferredGameId": "j68d"
+            }
+            payload = {"query": query, "variables": variables}
+            r = self.scraper.post(url, headers=headers, json=payload)
+            r.raise_for_status()
+            data = r.json()
+            nodes = data.get("data", {}).get("findProfiles", {}).get("nodes", [])
+            if not nodes:
+                self.write(f"[FEHLER] Kein Profil mit dem Namen '{username}' gefunden.", "red")
+                return None
+            return nodes[0]["id"]
+        except Exception as e:
+            self.write(f"[FEHLER] Profil-ID konnte nicht ermittelt werden: {e}", "red")
+            return None
+
+    def send_autograph(self, token_info, receiver_id, target_name):
+        try:
+            url = "https://eu.mspapis.com/federationgateway/graphql"
+            headers = {
+                "Authorization": f"Bearer {token_info['access_token']}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "id": "SendGreetings-159BDD7706D824BB8F14874A7FAE3368",
+                "variables": {
+                    "greetingType": "Autograph",
+                    "receiverProfileId": receiver_id,
+                    "ignoreDailyCap": False
+                }
+            }
+            r = self.scraper.post(url, headers=headers, json=payload)
+            r.raise_for_status()
+            data = r.json()
+            success = data.get("data", {}).get("greetings", {}).get("sendGreeting", {}).get("success", False)
+            if success:
+                self.write(f"[OK] Autogramm an {target_name} gesendet von {token_info['username']}", "green")
+            else:
+                self.write(f"[FEHLER] Autogramm von {token_info['username']} konnte nicht gesendet werden", "red")
+        except Exception as e:
+            self.write(f"[FEHLER] {token_info['username']}: {e}", "red")
+
+    def start_auto(self):
+        if not self.accounts:
+            return messagebox.showwarning("Keine Accounts", "Bitte mindestens einen Account anmelden.")
+        if not self.e_target.get().strip():
+            return messagebox.showwarning("Fehler", "Zielbenutzer eingeben!")
+
+        self.auto_running = True
+        self.auto_thread = threading.Thread(target=self.auto_loop, daemon=True)
+        self.auto_thread.start()
+        self.write("[INFO] Automatisches Versenden gestartet...", "green")
+
+    def stop_auto(self):
+        self.auto_running = False
+        self.write("[INFO] Automatisches Versenden gestoppt.", "yellow")
+
+    def auto_loop(self):
+        def send_loop(acc):
+            last_target_name = None
+            last_profile_id = None
+
+            while self.auto_running:
+                target_name = self.e_target.get().strip()
+                if not target_name:
+                    self.write("[FEHLER] Kein Zielbenutzer gesetzt.", "red")
+                    break
+
+                if target_name != last_target_name:
+                    self.token_info = acc
+                    profile_id = self.find_profile_id(target_name, acc["country"])
+                    if profile_id:
+                        last_profile_id = profile_id
+                        last_target_name = target_name
+                    else:
+                        last_profile_id = None  # Reset if not found
+
+                if last_profile_id:
+                    self.send_autograph(acc, last_profile_id, last_target_name)
+
+                for _ in range(123):  # 2 Minuten warten
+                    if not self.auto_running:
+                        break
+                    time.sleep(1)
+
+        for acc in self.accounts:
+            threading.Thread(target=send_loop, args=(acc,), daemon=True).start()
+
+
+    def _start_token_refresh_thread(self):
+        def refresh_loop():
+            while True:
+                time.sleep(3600)
+                for i, acc in enumerate(self.accounts):
+                    try:
+                        new_token = login(acc["username"], acc["password"], acc["country"])
+                        new_token["username"] = acc["username"]
+                        new_token["password"] = acc["password"]
+                        new_token["country"] = acc["country"]
+                        self.accounts[i].update(new_token)
+                        self.write(f"[REFRESH] Token erneuert für {acc['username']}", "cyan")
+                    except Exception as e:
+                        self.write(f"[FEHLER] Token-Erneuerung fehlgeschlagen für {acc['username']}: {e}", "red")
+        threading.Thread(target=refresh_loop, daemon=True).start()
+
+# -------------------- Duplication Tool (Fix mit Datum + Gift-Liste + 4x Login) --------------------
+class GiftOpenerTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.scraper = cloudscraper.create_scraper()
+        self.accounts = []
+        self.threads = []
+        self.start_event = threading.Event()
+        self._build()
+
+    def _build(self):
+        pad = 6
+
+        lf = ttk.LabelFrame(self, text="Logins einzeln")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        for i in range(2):
+            ttk.Label(lf, text=f"Benutzer {i+1}").grid(row=i*4, column=0, sticky="w")
+            setattr(self, f"e_user{i}", ttk.Entry(lf))
+            getattr(self, f"e_user{i}").grid(row=i*4, column=1, padx=pad)
+
+            ttk.Label(lf, text="Passwort").grid(row=i*4+1, column=0, sticky="w")
+            setattr(self, f"e_pw{i}", ttk.Entry(lf, show="*"))
+            getattr(self, f"e_pw{i}").grid(row=i*4+1, column=1, padx=pad)
+
+            ttk.Label(lf, text="Land").grid(row=i*4+2, column=0, sticky="w")
+            e_cty = ttk.Entry(lf)
+            e_cty.insert(0, "DE")
+            setattr(self, f"e_cty{i}", e_cty)
+            e_cty.grid(row=i*4+2, column=1, padx=pad)
+
+            ttk.Button(lf, text=f"Login Benutzer {i+1}", command=lambda idx=i: self.login_click(idx)).grid(row=i*4+3, columnspan=2, pady=pad)
+
+        gf = ttk.LabelFrame(self, text="🎁 Geschenk öffnen")
+        gf.pack(fill="x", padx=pad, pady=pad)
+
+        for i in range(2):
+            ttk.Label(gf, text=f"Gift-ID für Benutzer {i+1}").grid(row=i, column=0)
+            setattr(self, f"e_gift{i}", ttk.Entry(gf))
+            getattr(self, f"e_gift{i}").grid(row=i, column=1, padx=pad)
+
+        ttk.Button(self, text="🧠 Threads vorbereiten", command=self.open_gifts).pack(pady=pad)
+        ttk.Button(self, text="🎯 Jetzt starten", command=self.start_event.set).pack(pady=pad)
+
+        self.log = tk.Text(self, height=10, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_click(self, idx):
+        u = getattr(self, f"e_user{idx}").get().strip()
+        p = getattr(self, f"e_pw{idx}").get().strip()
+        c = getattr(self, f"e_cty{idx}").get().strip().upper()
+
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+
+        try:
+            for i in range(2):  # doppelt einloggen
+                token_info = login(u, p, c)
+                token_info["username"] = u
+                token_info["country"] = c
+                self.accounts.append(token_info)
+            self.write(f"[OK] Benutzer {idx+1} doppelt eingeloggt: {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] Login Benutzer {idx+1}: {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def open_gifts(self):
+        self.threads.clear()
+        self.start_event.clear()
+
+        for idx in range(len(self.accounts)):
+            for _ in range(10):  # volle Power pro Session
+                t = threading.Thread(target=self.open_single_gift, args=(idx,), daemon=True)
+                self.threads.append(t)
+
+        for t in self.threads:
+            t.start()
+
+        self.write("[INFO] Alle Threads bereit. Warte auf Startsignal...", "yellow")
+
+    def open_single_gift(self, idx):
+        acc = self.accounts[idx]
+        if not acc:
+            self.write(f"[FEHLER] Benutzer {idx+1} nicht eingeloggt", "red")
+            return
+
+        gift_id_index = 0 if idx < 2 else idx % 2
+        gift_id = getattr(self, f"e_gift{gift_id_index}").get().strip()
+
+        if not gift_id:
+            self.write(f"[FEHLER] Keine Gift-ID für Benutzer {gift_id_index+1} angegeben", "red")
+            return
+
+        self.start_event.wait()  # Synchronstart
+
+        payload = {
+            "query": """
+            mutation OpenGift($giftId: ID!, $receiverProfileId: ID!) {
+                openGift(input: { giftId: $giftId, receiverProfileId: $receiverProfileId }) {
+                    success
+                    error
+                    item {
+                        id objectId objectSource additionalData
+                        tags { id source }
+                    }
+                }
+            }
+            """,
+            "variables": {
+                "giftId": gift_id,
+                "receiverProfileId": acc["profile_id"]
+            }
+        }
+
+        headers = {
+            "Authorization": f"Bearer {acc['access_token']}",
+            "Content-Type": "application/json",
+            "Referer": "https://moviestarplanet2.com/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+
+        try:
+            res = self.scraper.post("https://eu.mspapis.com/edgegifts/graphql/graphql",
+                                    headers=headers, json=payload, timeout=6)
+            res.raise_for_status()
+            data = res.json()["data"]["openGift"]
+
+            if data["success"]:
+                item_id = data["item"]["id"]
+                self.after(0, self.write, f"[OK] Geschenk {gift_id} geöffnet für {acc['username']} (Item ID: {item_id})", "green")
+            else:
+                error = data["error"]
+                self.after(0, self.write, f"[FEHLER] Geschenk nicht geöffnet für {acc['username']}: {error}", "red")
+        except Exception as e:
+            self.after(0, self.write, f"[FEHLER] Fehler bei {acc['username']}: {e}", "red")
+
+    def write(self, msg, color=None):
+        self.log.insert(tk.END, msg + "\n")
+        self.log.see(tk.END)
+
+# -------------------- Daily Login --------------------
+class DailyLogin(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.accounts = []
+        self._build()
+
+    def _build(self):
+        pad = 6
+
+        ttk.Label(self, text="📄 Accountliste auswählen").pack(pady=(8, 2))
+        self.combo_claim = ttk.Combobox(
+            self, values=["1", "2", "3", "4", "5", "6", "7"], state="readonly", width=5)
+        self.combo_claim.set("1")
+        self.combo_claim.pack()
+
+        ttk.Button(self, text="📜 Liste einloggen", command=self.login_from_file).pack(pady=(4, pad))
+
+        self.log = tk.Text(self, height=16, bg="#000000", fg="white", insertbackground="#ffffff")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_from_file(self):
+        file_id = self.combo_claim.get()
+        suffix = '' if file_id == '1' else file_id
+        dateiname = resource_path(f"acclist{suffix}.txt")
+
+        # → holt den Pfad der EXE oder des Skripts
+        base_dir = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else __file__)
+        dateiname = os.path.join(base_dir, f"acclist{suffix}.txt")
+
+        # 👇 Debug-Ausgabe für den gesuchten Dateipfad
+        self.write(f"[DEBUG] Suche Datei: {dateiname}", "yellow")
+
+        def worker():
+            try:
+                with open(dateiname, "r", encoding="utf-8") as f:
+                    lines = [line.strip() for line in f if line.strip()]
+                for line in lines:
+                    parts = line.split(":")
+                    if len(parts) < 2:
+                        continue
+                    u, p = parts[0], parts[1]
+                    c = parts[2] if len(parts) >= 3 else "DE"
+                    try:
+                        scraper = cloudscraper.create_scraper()
+                        token_info = login(u, p, c, proxies=scraper.proxies)
+                        token_info["username"] = u
+                        self.accounts.append(token_info)
+                        self.write(f"[Login] {u}", "green")
+                    except Exception as e:
+                        self.write(f"[FEHLER] {u}: {e}", "red")
+                    time.sleep(0.5)
+                self.write("✅ Liste abgeschlossen. Weitere Liste nur manuell starten.", "cyan")
+            except Exception as e:
+                self.write(f"[FEHLER] Datei: {e}", "red")
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_configure(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        self.log.see(tk.END)
+
+
+# -------------------- Teleport Tab --------------------
+class TeleportTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.token_info = None
+        self.scraper = cloudscraper.create_scraper()
+        self.attributes = {}
+        self._build()
+
+    def _build(self):
+        pad = 6
+        lf = ttk.LabelFrame(self, text="Login")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf)
+        self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*")
+        self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf)
+        self.e_cty.insert(0, "DE")
+        self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+
+        pos_frame = ttk.LabelFrame(self, text="Neue Koordinaten")
+        pos_frame.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(pos_frame, text="X").grid(row=0, column=0)
+        self.e_x_int = ttk.Entry(pos_frame, width=5)
+        self.e_x_int.insert(0, "15")
+        self.e_x_int.grid(row=0, column=1, padx=4)
+
+        ttk.Label(pos_frame, text="Y").grid(row=0, column=2)
+        self.e_y_int = ttk.Entry(pos_frame, width=5)
+        self.e_y_int.insert(0, "-1")
+        self.e_y_int.grid(row=0, column=3, padx=4)
+
+        ttk.Label(pos_frame, text="Z").grid(row=0, column=4)
+        self.e_z_int = ttk.Entry(pos_frame, width=5)
+        self.e_z_int.insert(0, "-16")
+        self.e_z_int.grid(row=0, column=5, padx=4)
+
+        ttk.Label(self, text="🌍 Raumtyp wählen").pack(pady=(4, 0))
+        self.room_type = ttk.Combobox(self, state="readonly", values=[
+            "basic_plaza",
+            "forest",
+            "basic_beach",
+            "basic_vip"
+        ])
+        self.room_type.set("basic_plaza")
+        self.room_type.pack(pady=(0, pad))
+
+        ttk.Button(self, text="🛰️ Teleportieren", command=self.teleport).pack(pady=pad)
+
+        self.log = ScrolledText(self, height=10, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+
+        try:
+            self.token_info = login(u, p, c)
+            self.token_info["username"] = u
+            self.write(f"[OK] Eingeloggt als {u}", "green")
+            self.load_attributes()
+        except Exception as e:
+            self.write(f"[FEHLER] {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def load_attributes(self):
+        profile_id = self.token_info['profile_id']
+        token = self.token_info['access_token']
+        url = f"https://eu.mspapis.com/profileattributes/v1/profiles/{profile_id}/games/j68d/attributes"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        }
+        try:
+            r = self.scraper.get(url, headers=headers)
+            r.raise_for_status()
+            data = r.json()
+            self.attributes = data.get("additionalData", {})
+            self.write("[INFO] Daten erfolgreich geladen.", "cyan")
+        except Exception as e:
+            self.write(f"[FEHLER] Daten konnten nicht geladen werden: {e}", "red")
+
+    def teleport(self):
+        if not self.token_info or not self.attributes:
+            return messagebox.showwarning("Fehler", "Bitte zuerst einloggen und Daten laden.")
+
+        try:
+            # Sichtbare Eingaben
+            x_int = int(self.e_x_int.get())
+            y_int = int(self.e_y_int.get())
+            z_int = int(self.e_z_int.get())
+
+            # Fest hinterlegte Nachkommastellen
+            x_float = float(f"{x_int}.83926010131836")
+            y_float = float(f"{y_int}.5668649077415466")
+            z_float = float(f"{z_int}.73294997215271")
+
+        except ValueError:
+            return messagebox.showerror("Fehler", "Ungültige Zahlen (nur ganze Zahlen erlaubt).")
+
+        try:
+            profile_id = self.token_info['profile_id']
+            token = self.token_info['access_token']
+            url = f"https://eu.mspapis.com/profileattributes/v1/profiles/{profile_id}/games/j68d/attributes"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+
+            payload = {
+                "additionalData": dict(self.attributes)
+            }
+
+            pos_data = json.loads(payload["additionalData"].get("ChatRoomPositionData", "{}"))
+            pos_data["position"] = {"x": x_float, "y": y_float, "z": z_float}
+            pos_data["roomType"] = self.room_type.get()
+            payload["additionalData"]["ChatRoomPositionData"] = json.dumps(pos_data)
+
+            res = self.scraper.put(url, headers=headers, json=payload)
+            if res.status_code == 200:
+                self.write(f"[OK] Teleportiert nach {self.room_type.get()} → X:{x_float} Y:{y_float} Z:{z_float}", "green")
+            else:
+                self.write(f"[FEHLER] Teleport fehlgeschlagen: {res.status_code}", "red")
+        except Exception as e:
+            self.write(f"[FEHLER] Teleport fehlgeschlagen: {e}", "red")
+
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_configure(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        self.log.see(tk.END)
+
+
+# -------------------- Star Greeting Combo Tab --------------------
+class StarGreetingComboTab(ttk.Frame):
+    """
+    Kombi-Tool mit animiertem Toggle:
+      0 = Viele Accounts -> 1 Empfänger (StarGreeting alle 15 min)
+      1 = Ein Account    -> Viele Empfänger (StarGreeting alle 15 min)
+    """
+    def __init__(self, master):
+        super().__init__(master)
+        self.scraper = cloudscraper.create_scraper()
+
+        # Gemeinsame States
+        self.auto_running = False
+        self.loop_thread  = None
+        self.current_mode = 0  # 0 = MS->ST, 1 = SM->MT
+
+        # --- Mode 0 (multi -> single) ---
+        self.ms_accounts = []    # dicts mit access_token, username, password, country
+        self.ms_token_refresh_thread = None
+
+        # --- Mode 1 (single -> multi) ---
+        self.sm_account   = None
+        self.sm_targets   = []
+        self.sm_token_refresh_thread = None
+
+        self._build()
+        self._start_token_refresh_threads()
+
+    # ---------------- UI ----------------
+    def _build(self):
+        pad = 6
+
+        # Modus-Umschalter (klein & animiert)
+        mf = ttk.LabelFrame(self, text="Modus")
+        mf.pack(fill="x", padx=pad, pady=(pad, 0))
+
+        self.mode_label = ttk.Label(mf, text="Viele Accounts → 1 Empfänger")
+        self.mode_label.pack(side="right", padx=pad)
+
+        # Wichtig: on_toggle ruft NUR _apply_mode (keine programmatic set-Calls!)
+        def _on_toggle(is_on: bool):
+            self._apply_mode(1 if is_on else 0)
+
+        self.mode_switch = AnimatedToggleSwitch(mf, value=False, on_toggle=_on_toggle, width=44, height=24)
+        self.mode_switch.pack(side="left", padx=pad, pady=(4, 4))
+
+        # Container für beide Modi
+        self.container = ttk.Frame(self)
+        self.container.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+        # --------- Mode 0 UI  (Viele -> Ein) ---------
+        self.frame_ms = ttk.Frame(self.container)
+
+        lf = ttk.LabelFrame(self.frame_ms, text="Login (mehrere Accounts)")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.ms_e_user = ttk.Entry(lf); self.ms_e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.ms_e_pw = ttk.Entry(lf, show="*"); self.ms_e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.ms_e_cty = ttk.Entry(lf); self.ms_e_cty.insert(0, "DE")
+        self.ms_e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.ms_login_click).grid(row=3, columnspan=2, pady=(pad, 0))
+
+        # (ENTFERNT) ListeLogin-Buttons
+
+        self.ms_list = tk.Listbox(self.frame_ms, height=5, bg="#000000", fg="white",
+                                  selectbackground="#000000", selectforeground="white")
+        self.ms_list.pack(fill="x", padx=pad, pady=(0, 2))
+
+        ttk.Button(self.frame_ms, text="❌ Ausgewählten Account entfernen", command=self.ms_remove_selected).pack(padx=pad, pady=(0, pad))
+
+        tf = ttk.LabelFrame(self.frame_ms, text="Empfänger (Name oder profileId)")
+        tf.pack(fill="x", padx=pad, pady=pad)
+        self.ms_e_target = ttk.Entry(tf)
+        self.ms_e_target.pack(fill="x", padx=pad, pady=(pad, 2))
+        self.ms_var_target_is_id = tk.BooleanVar(value=False)
+        ttk.Checkbutton(tf, text="Eingabe ist bereits profileId",
+                        variable=self.ms_var_target_is_id).pack(anchor="w", padx=pad)
+
+        ctl = ttk.Frame(self.frame_ms); ctl.pack(fill="x", padx=pad, pady=(pad, 0))
+        ttk.Button(ctl, text="▶️ Start (alle 15 Min.)", command=self.start_loop).pack(side="left")
+        ttk.Button(ctl, text="⏹️ Stop", command=self.stop_loop).pack(side="left", padx=(pad, 0))
+
+        # --------- Mode 1 UI  (Ein -> Viele) ---------
+        self.frame_sm = ttk.Frame(self.container)
+
+        lfs = ttk.LabelFrame(self.frame_sm, text="Login (ein Account)")
+        lfs.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lfs, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.sm_e_user = ttk.Entry(lfs); self.sm_e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lfs, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.sm_e_pw = ttk.Entry(lfs, show="*"); self.sm_e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lfs, text="Land").grid(row=2, column=0, sticky="w")
+        self.sm_e_cty = ttk.Entry(lfs); self.sm_e_cty.insert(0, "DE")
+        self.sm_e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lfs, text="Anmelden", command=self.sm_login_click).grid(row=3, columnspan=2, pady=(pad, 0))
+
+        tgtf = ttk.LabelFrame(self.frame_sm, text="Empfänger verwalten")
+        tgtf.pack(fill="both", padx=pad, pady=pad)
+
+        row = ttk.Frame(tgtf); row.pack(fill="x", padx=pad, pady=(pad, 2))
+        ttk.Label(row, text="Empfänger (Name oder profileId):").pack(side="left")
+        self.sm_e_add = ttk.Entry(row); self.sm_e_add.pack(side="left", fill="x", expand=True, padx=(6, 6))
+        ttk.Button(row, text="➕ Hinzufügen", command=self.sm_add_target).pack(side="left")
+
+        self.sm_listbox = tk.Listbox(tgtf, height=6, bg="#000000", fg="white",
+                                     selectbackground="#333333", selectforeground="white")
+        self.sm_listbox.pack(fill="both", expand=True, padx=pad, pady=(2, 2))
+
+        row2 = ttk.Frame(tgtf); row2.pack(fill="x", padx=pad, pady=(0, pad))
+        ttk.Button(row2, text="❌ Entfernen", command=self.sm_remove_selected).pack(side="left")
+        ttk.Button(row2, text="🧹 Leeren", command=self.sm_clear_list).pack(side="left", padx=(pad, 0))
+        self.sm_var_targets_are_ids = tk.BooleanVar(value=False)
+        ttk.Checkbutton(tgtf, text="Alle Einträge sind bereits profileIds",
+                        variable=self.sm_var_targets_are_ids).pack(anchor="w", padx=pad, pady=(0, 2))
+
+        ctl2 = ttk.Frame(self.frame_sm); ctl2.pack(fill="x", padx=pad, pady=(pad, 0))
+        ttk.Button(ctl2, text="▶️ Start (alle 15 Min.)", command=self.start_loop).pack(side="left")
+        ttk.Button(ctl2, text="⏹️ Stop", command=self.stop_loop).pack(side="left", padx=(pad, 0))
+
+        # --------- Log ----------
+        self.log = ScrolledText(self, height=14, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+        # Initiale Ansicht NUR programmatisch setzen (Switch ohne Callback anpassen)
+        self._switch_mode(0)
+
+    # --------- Neue Trennung: Anwenden vs. Setzen ----------
+    def _apply_mode(self, m: int):
+        """Nur Frames/Label aktualisieren, KEIN set() auf dem Switch!"""
+        self.current_mode = m
+        for child in (self.frame_ms, self.frame_sm):
+            child.pack_forget()
+        if m == 0:
+            self.frame_ms.pack(fill="both", expand=True)
+            self.mode_label.config(text="Viele Accounts → 1 Empfänger")
+        else:
+            self.frame_sm.pack(fill="both", expand=True)
+            self.mode_label.config(text="Ein Account → Viele Empfänger")
+
+    def _switch_mode(self, m: int):
+        """Programmatische Umschaltung: Switch-Status setzen OHNE on_toggle, danach UI anwenden."""
+        self.mode_switch.set(m == 1, trigger=False)  # kein Callback feuern
+        self._apply_mode(m)
+
+    # ---------------- Helpers / (… Rest bleibt wie gehabt) ----------------
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_config(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        if int(self.log.index("end-1c").split(".")[0]) > 500:
+            self.log.delete("1.0", "120.0")
+        self.log.see(tk.END)
+
+    def _looks_like_uuid(self, s: str) -> bool:
+        s = s.strip().lower()
+        return len(s) == 32 and all(c in "0123456789abcdef" for c in s)
+
+    def _start_token_refresh_threads(self):
+        def ms_refresh():
+            while True:
+                time.sleep(3600)
+                for i, acc in enumerate(list(self.ms_accounts)):
+                    try:
+                        new_token = login(acc["username"], acc["password"], acc["country"])
+                        new_token["username"] = acc["username"]
+                        new_token["password"] = acc["password"]
+                        new_token["country"]  = acc["country"]
+                        self.ms_accounts[i] = new_token
+                        self.write(f"[REFRESH] Token erneuert für {acc['username']}", "cyan")
+                    except Exception as e:
+                        self.write(f"[FEHLER] Token-Refresh (MS) {acc.get('username','?')}: {e}", "red")
+        threading.Thread(target=ms_refresh, daemon=True).start()
+
+        def sm_refresh():
+            while True:
+                time.sleep(3600)
+                if not self.sm_account:
+                    continue
+                try:
+                    acc = self.sm_account
+                    new_token = login(acc["username"], acc["password"], acc["country"])
+                    new_token["username"] = acc["username"]
+                    new_token["password"] = acc["password"]
+                    new_token["country"]  = acc["country"]
+                    self.sm_account = new_token
+                    self.write(f"[REFRESH] Token erneuert für {acc['username']}", "cyan")
+                except Exception as e:
+                    self.write(f"[FEHLER] Token-Refresh (SM): {e}", "red")
+        threading.Thread(target=sm_refresh, daemon=True).start()
+
+    # ---------------- Logins ----------------
+    # Mode 0
+    def ms_login_click(self):
+        u = self.ms_e_user.get().strip()
+        p = self.ms_e_pw.get().strip()
+        c = self.ms_e_cty.get().strip().upper()
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+        try:
+            acc = login(u, p, c)
+            acc["username"] = u; acc["password"] = p; acc["country"] = c
+            self.ms_accounts.append(acc)
+            self.ms_list.insert(tk.END, u)
+            self.write(f"[OK] Eingeloggt: {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] Login: {e}", "red")
+
+    def ms_login_from_file(self, filename):
+        try:
+            base_dir = os.path.dirname(sys.executable if getattr(sys, 'frozen', False) else __file__)
+            full_path = os.path.join(base_dir, filename)
+            self.write(f"[DEBUG] Lese Datei: {full_path}", "yellow")
+            with open(full_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            added = 0
+            for line in lines:
+                parts = line.strip().split(":")
+                if len(parts) < 2:
+                    continue
+                u = parts[0].strip()
+                p = parts[1].strip()
+                c = parts[2].strip().upper() if len(parts) > 2 else "DE"
+                try:
+                    acc = login(u, p, c)
+                    acc["username"] = u; acc["password"] = p; acc["country"] = c
+                    self.ms_accounts.append(acc)
+                    self.ms_list.insert(tk.END, u)
+                    added += 1
+                except Exception as e:
+                    self.write(f"[FEHLER] {u}: {e}", "red")
+            self.write(f"[INFO] {added} Accounts geladen.", "cyan")
+        except Exception as e:
+            self.write(f"[FEHLER] Datei: {e}", "red")
+
+    def ms_remove_selected(self):
+        sel = self.ms_list.curselection()
+        if not sel:
+            return
+        idx = sel[0]
+        acc = self.ms_accounts[idx]
+        self.ms_list.delete(idx)
+        del self.ms_accounts[idx]
+        self.write(f"[INFO] Account entfernt: {acc.get('username','?')}", "yellow")
+
+    # Mode 1
+    def sm_login_click(self):
+        u = self.sm_e_user.get().strip()
+        p = self.sm_e_pw.get().strip()
+        c = self.sm_e_cty.get().strip().upper()
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+        try:
+            acc = login(u, p, c)
+            acc["username"] = u; acc["password"] = p; acc["country"] = c
+            self.sm_account = acc
+            self.write(f"[OK] Eingeloggt: {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] Login: {e}", "red")
+
+    # Empfänger-Management (Mode 1)
+    def sm_add_target(self):
+        val = self.sm_e_add.get().strip()
+        if not val:
+            return
+        self.sm_listbox.insert(tk.END, val)
+        self.sm_e_add.delete(0, tk.END)
+
+    def sm_remove_selected(self):
+        sel = self.sm_listbox.curselection()
+        if not sel:
+            return
+        self.sm_listbox.delete(sel[0])
+
+    def sm_clear_list(self):
+        self.sm_listbox.delete(0, tk.END)
+
+    # ---------------- API ----------------
+    def find_profile_id(self, username, region):
+        """
+        Sucht die profileId über edgerelationships.findProfiles.
+        Verwendet self.token_info['access_token'] (wie von dir gewünscht).
+        """
+        try:
+            if not hasattr(self, "token_info") or not self.token_info or "access_token" not in self.token_info:
+                self.write("[FEHLER] Kein Token für Profilsuche vorhanden (self.token_info fehlt).", "red")
+                return None
+
+            name = (username or "").strip()
+            if not name:
+                self.write("[FEHLER] Leerer Name für Profilsuche.", "red")
+                return None
+
+            url = "https://eu.mspapis.com/edgerelationships/graphql/graphql"
+            headers = {
+                "Authorization": f"Bearer {self.token_info['access_token']}",
+                "Content-Type": "application/json"
+            }
+            query = """
+            query GetProfileSearch($region: String!, $startsWith: String!, $pageSize: Int, $currentPage: Int, $preferredGameId: String!) {
+                findProfiles(region: $region, nameBeginsWith: $startsWith, pageSize: $pageSize, page: $currentPage) {
+                    totalCount
+                    nodes {
+                        id
+                        avatar(preferredGameId: $preferredGameId) {
+                            gameId
+                            face
+                            full
+                        }
+                    }
+                }
+            }
+            """
+            variables = {
+                "region": region,
+                "startsWith": name,
+                "pageSize": 50,
+                "currentPage": 1,
+                "preferredGameId": "j68d"
+            }
+            payload = {"query": query, "variables": variables}
+
+            r = self.scraper.post(url, headers=headers, json=payload, timeout=15)
+            r.raise_for_status()
+            data = r.json()
+            nodes = data.get("data", {}).get("findProfiles", {}).get("nodes", [])
+            if not nodes:
+                self.write(f"[FEHLER] Kein Profil mit dem Namen '{name}' gefunden.", "red")
+                return None
+            return nodes[0]["id"]
+        except Exception as e:
+            self.write(f"[FEHLER] Profil-ID konnte nicht ermittelt werden: {e}", "red")
+            return None
+
+    def send_star_greeting(self, access_token, receiver_profile_id, label):
+        try:
+            url = "https://eu.mspapis.com/federationgateway/graphql"
+            headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+            payload = {
+                "id": "SendGreetings-159BDD7706D824BB8F14874A7FAE3368",
+                "variables": {
+                    "greetingType": "HalloweenGreeting",
+                    "receiverProfileId": receiver_profile_id,
+                    "ignoreDailyCap": False
+                }
+            }
+            r = self.scraper.post(url, headers=headers, json=payload, timeout=12)
+            r.raise_for_status()
+            data = r.json()
+            success = (
+                data.get("data", {}).get("greetings", {}).get("sendGreeting", {}).get("success", False)
+            ) or (
+                data.get("data", {}).get("sendGreeting", {}).get("success", False)
+            )
+            if success:
+                self.write(f"[OK] StarGreeting → {label}", "green")
+            else:
+                self.write(f"[FEHLER] StarGreeting → {label} fehlgeschlagen.", "red")
+        except Exception as e:
+            self.write(f"[FEHLER] StarGreeting → {label}: {e}", "red")
+
+    # ---------------- Loop Control ----------------
+    def start_loop(self):
+        if self.auto_running:
+            return self.write("[INFO] Läuft bereits.", "yellow")
+
+        m = self.current_mode
+        if m == 0:
+            # MS → ST
+            if not self.ms_accounts:
+                return messagebox.showwarning("Fehler", "Bitte mindestens einen Account einloggen.")
+            if not self.ms_e_target.get().strip():
+                return messagebox.showwarning("Fehler", "Empfänger angeben!")
+        else:
+            # SM → MT
+            if not self.sm_account:
+                return messagebox.showwarning("Fehler", "Bitte zuerst einloggen!")
+            if self.sm_listbox.size() == 0:
+                return messagebox.showwarning("Fehler", "Keine Empfänger in der Liste!")
+
+        self.auto_running = True
+        self.loop_thread = threading.Thread(target=self._loop, daemon=True)
+        self.loop_thread.start()
+        self.write("[INFO] Auto-Run gestartet (Intervall 15 Min.)", "cyan")
+
+    def stop_loop(self):
+        self.auto_running = False
+        self.write("[INFO] Gestoppt.", "yellow")
+
+    def _loop(self):
+        INTERVAL = 15 * 60  # 15 Minuten
+        while self.auto_running:
+            mode_now = self.current_mode
+            try:
+                if mode_now == 0:
+                    self._run_mode_ms()
+                else:
+                    self._run_mode_sm()
+            except Exception as e:
+                self.write(f"[FEHLER] Run: {e}", "red")
+
+            # Warten bis nächste Runde
+            if not self.auto_running:
+                break
+            for remain in range(INTERVAL, 0, -1):
+                if not self.auto_running:
+                    break
+                if remain % 30 == 0 or remain <= 10:
+                    self.write(f"[WARTEN] Nächste Runde in {remain}s ...", "cyan")
+                time.sleep(1)
+
+        self.write("[INFO] Auto-Run beendet.", "yellow")
+
+    # --- Runde: Mode 0 (Viele -> Ein) ---
+    def _run_mode_ms(self):
+        target_raw = self.ms_e_target.get().strip()
+        treat_as_id = self.ms_var_target_is_id.get()
+        if not target_raw:
+            self.write("[FEHLER] Kein Empfänger gesetzt.", "red")
+            return
+
+        # Ziel-ID auflösen (einmalig)
+        first_acc = self.ms_accounts[0]
+        region = first_acc.get("country", "DE").upper()
+        # WICHTIG: Tokenquelle setzen, damit find_profile_id darauf zugreift
+        self.token_info = first_acc
+
+        if treat_as_id or self._looks_like_uuid(target_raw) or "|" in target_raw:
+            receiver_id = target_raw
+            label = target_raw
+        else:
+            receiver_id = self.find_profile_id(target_raw, region)
+            if not receiver_id:
+                return
+            label = f"{target_raw} ({receiver_id})"
+
+        # Jeder Account sendet 1x
+        for acc in list(self.ms_accounts):
+            if not self.auto_running:
+                break
+            self.send_star_greeting(acc["access_token"], receiver_id, f"{label} ← {acc.get('username','?')}")
+            time.sleep(1)
+
+    # --- Runde: Mode 1 (Ein -> Viele) ---
+    def _run_mode_sm(self):
+        acc = self.sm_account
+        region = acc.get("country", "DE").upper()
+        # WICHTIG: Tokenquelle setzen
+        self.token_info = acc
+
+        entries = [self.sm_listbox.get(i) for i in range(self.sm_listbox.size())]
+        treat_as_ids = self.sm_var_targets_are_ids.get()
+        if not entries:
+            self.write("[INFO] Keine Empfänger vorhanden.", "yellow")
+            return
+
+        for item in list(entries):
+            if not self.auto_running:
+                break
+
+            if treat_as_ids or self._looks_like_uuid(item) or "|" in item:
+                receiver_id = item
+                label = item
+            else:
+                receiver_id = self.find_profile_id(item.strip(), region)
+                if not receiver_id:
+                    continue
+                label = f"{item} ({receiver_id})"
+
+            self.send_star_greeting(acc["access_token"], receiver_id, label)
+            time.sleep(1)
+
+
+class SpecialMassSenderTab(ttk.Frame):
+    """
+    Zwei Logins (jeweils doppelt), Ziel (Name oder profileId) eingeben,
+    Greeting-Typ wählen und 'N' parallele Anfragen *pro Account* abfeuern.
+    Buttons: Threads vorbereiten -> gemeinsamer Start -> Stop.
+    """
+    def __init__(self, master):
+        super().__init__(master)
+        self.scraper = cloudscraper.create_scraper()
+        self.accounts = []            # Liste von token_info Dicts (je Login 2x)
+        self.threads = []
+        self.start_event = threading.Event()
+        self.running = False
+        self.token_info = None        # wird für find_profile_id verwendet (siehe Wunsch)
+        self._build()
+
+    # ---------- UI ----------
+    def _build(self):
+        pad = 6
+
+        lf = ttk.LabelFrame(self, text="Logins einzeln (jeder wird doppelt eingeloggt)")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        for i in range(2):
+            ttk.Label(lf, text=f"Benutzer {i+1}").grid(row=i*4, column=0, sticky="w")
+            setattr(self, f"e_user{i}", ttk.Entry(lf))
+            getattr(self, f"e_user{i}").grid(row=i*4, column=1, padx=pad)
+
+            ttk.Label(lf, text="Passwort").grid(row=i*4+1, column=0, sticky="w")
+            setattr(self, f"e_pw{i}", ttk.Entry(lf, show="*"))
+            getattr(self, f"e_pw{i}").grid(row=i*4+1, column=1, padx=pad)
+
+            ttk.Label(lf, text="Land").grid(row=i*4+2, column=0, sticky="w")
+            e_cty = ttk.Entry(lf); e_cty.insert(0, "DE")
+            setattr(self, f"e_cty{i}", e_cty)
+            e_cty.grid(row=i*4+2, column=1, padx=pad)
+
+            ttk.Button(lf, text=f"Login Benutzer {i+1}",
+                       command=lambda idx=i: self.login_click(idx)).grid(row=i*4+3, columnspan=2, pady=pad)
+
+        tf = ttk.LabelFrame(self, text="🎯 Ziel & Einstellungen")
+        tf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(tf, text="Ziel (Name oder profileId):").grid(row=0, column=0, sticky="w")
+        self.e_target = ttk.Entry(tf); self.e_target.grid(row=0, column=1, sticky="ew", padx=pad)
+        tf.columnconfigure(1, weight=1)
+
+        self.var_is_id = tk.BooleanVar(value=False)
+        ttk.Checkbutton(tf, text="Eingabe ist bereits profileId",
+                        variable=self.var_is_id).grid(row=1, column=1, sticky="w", padx=pad, pady=(0, 4))
+
+        ttk.Label(tf, text="Greeting-Typ:").grid(row=2, column=0, sticky="w")
+        self.greeting_var = tk.StringVar(value="StarGreeting")
+        ttk.Combobox(tf, textvariable=self.greeting_var,
+                     values=["StarGreeting", "Autograph"],
+                     state="readonly", width=18).grid(row=2, column=1, sticky="w", padx=pad, pady=(0, 4))
+
+        ttk.Label(tf, text="Parallele Anfragen pro Account:").grid(row=3, column=0, sticky="w")
+        self.per_acc_threads = tk.IntVar(value=1)
+        ttk.Spinbox(tf, from_=1, to=200, textvariable=self.per_acc_threads, width=6)\
+           .grid(row=3, column=1, sticky="w", padx=pad)
+
+        ttk.Button(self, text="🧠 Threads vorbereiten", command=self.prepare_threads).pack(pady=pad)
+        ttk.Button(self, text="🎯 Jetzt starten", command=self.start_event.set).pack(pady=(0, pad))
+        ttk.Button(self, text="⏹️ Stop", command=self.stop).pack(pady=(0, pad))
+
+        self.log = ScrolledText(self, height=12, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    # ---------- Login ----------
+    def login_click(self, idx: int):
+        u = getattr(self, f"e_user{idx}").get().strip()
+        p = getattr(self, f"e_pw{idx}").get().strip()
+        c = getattr(self, f"e_cty{idx}").get().strip().upper()
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+
+        try:
+            for i in range(2):  # doppelt einloggen (wie gewünscht)
+                token_info = login(u, p, c)
+                token_info["username"] = u
+                token_info["country"]  = c
+                self.accounts.append(token_info)
+                # ✅ DEBUG-Ausgabe für Token-Vergleich
+                self.write(f"[DEBUG] Token {len(self.accounts)}: {token_info['access_token'][:1000]}...", "cyan")
+            self.write(f"[OK] Benutzer {idx+1} doppelt eingeloggt: {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] Login Benutzer {idx+1}: {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    # ---------- Threads vorbereiten ----------
+    def prepare_threads(self):
+        if not self.accounts:
+            return messagebox.showwarning("Fehler", "Bitte mindestens einen Benutzer einloggen.")
+
+        target_raw = (self.e_target.get() or "").strip()
+        if not target_raw:
+            return messagebox.showwarning("Fehler", "Bitte Ziel eingeben.")
+
+        # Für die gewünschte find_profile_id verwenden wir self.token_info (= erster Account)
+        self.token_info = self.accounts[0]
+        region = self.token_info.get("country", "DE").upper()
+
+        if self.var_is_id.get() or self._looks_like_uuid(target_raw) or "|" in target_raw:
+            receiver_id = target_raw
+            label = target_raw
+        else:
+            receiver_id = self.find_profile_id(target_raw, region)  # *** exakt nach deiner Vorlage ***
+            if not receiver_id:
+                return
+            label = f"{target_raw} ({receiver_id})"
+
+        self.threads.clear()
+        self.start_event.clear()
+        self.running = True
+
+        per_acc = max(1, int(self.per_acc_threads.get()))
+        greeting_type = self.greeting_var.get()
+
+        for acc in self.accounts:
+            token = acc["access_token"]
+            for _ in range(per_acc):
+                t = threading.Thread(
+                    target=self._worker_send_once,
+                    args=(token, receiver_id, greeting_type, f"{label} ← {acc.get('username','?')}"),
+                    daemon=True
+                )
+                self.threads.append(t)
+
+        for t in self.threads:
+            t.start()
+
+        self.write(f"[INFO] {len(self.accounts)} Accounts × {per_acc} Threads vorbereitet "
+                   f"(gesamt {len(self.threads)}). Klicke jetzt auf '🎯 Jetzt starten'.", "cyan")
+
+    def _worker_send_once(self, token, receiver_id, greeting_type, label):
+        self.start_event.wait()   # Synchronstart
+        if not self.running:
+            return
+        self._send_greeting_once(token, receiver_id, greeting_type, label)
+
+    def stop(self):
+        self.running = False
+        self.start_event.set()
+        self.write("[INFO] gestoppt.", "yellow")
+
+    # ---------- Request ----------
+    def _send_greeting_once(self, access_token, receiver_profile_id, greeting_type, label):
+        try:
+            url = "https://eu.mspapis.com/federationgateway/graphql"
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "Referer": "https://moviestarplanet2.com/",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+            }
+            payload = {
+                "id": "SendGreetings-159BDD7706D824BB8F14874A7FAE3368",
+                "variables": {
+                    "greetingType": greeting_type,   # "StarGreeting" oder "Autograph"
+                    "receiverProfileId": receiver_profile_id,
+                    "ignoreDailyCap": False
+                }
+            }
+            res = self.scraper.post(url, headers=headers, json=payload, timeout=8)
+            res.raise_for_status()
+            data = res.json()
+            success = (
+                data.get("data", {}).get("greetings", {}).get("sendGreeting", {}).get("success", False)
+            ) or (
+                data.get("data", {}).get("sendGreeting", {}).get("success", False)
+            )
+            if success:
+                self.after(0, self.write, f"[OK] {greeting_type} → {label}", "green")
+            else:
+                self.after(0, self.write, f"[FEHLER] {greeting_type} → {label} fehlgeschlagen.", "red")
+        except Exception as e:
+            self.after(0, self.write, f"[FEHLER] {greeting_type} → {label}: {e}", "red")
+
+    # ---------- Utils ----------
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_config(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        self.log.see(tk.END)
+
+    def _looks_like_uuid(self, s: str) -> bool:
+        s = (s or "").strip().lower()
+        return len(s) == 32 and all(c in "0123456789abcdef" for c in s)
+
+    # *** exakt DEINE gewünschte find_profile_id – unverändert übernommen ***
+    def find_profile_id(self, username, region):
+        try:
+            url = "https://eu.mspapis.com/edgerelationships/graphql/graphql"
+            headers = {
+                "Authorization": f"Bearer {self.token_info['access_token']}",
+                "Content-Type": "application/json"
+            }
+            query = """
+            query GetProfileSearch($region: String!, $startsWith: String!, $pageSize: Int, $currentPage: Int, $preferredGameId: String!) {
+                findProfiles(region: $region, nameBeginsWith: $startsWith, pageSize: $pageSize, page: $currentPage) {
+                    totalCount
+                    nodes {
+                        id
+                        avatar(preferredGameId: $preferredGameId) {
+                            gameId
+                            face
+                            full
+                        }
+                    }
+                }
+            }
+            """
+            variables = {
+                "region": region,
+                "startsWith": username,
+                "pageSize": 50,
+                "currentPage": 1,
+                "preferredGameId": "j68d"
+            }
+            payload = {"query": query, "variables": variables}
+            r = self.scraper.post(url, headers=headers, json=payload)
+            r.raise_for_status()
+            data = r.json()
+            nodes = data.get("data", {}).get("findProfiles", {}).get("nodes", [])
+            if not nodes:
+                self.write(f"[FEHLER] Kein Profil mit dem Namen '{username}' gefunden.", "red")
+                return None
+            return nodes[0]["id"]
+        except Exception as e:
+            self.write(f"[FEHLER] Profil-ID konnte nicht ermittelt werden: {e}", "red")
+            return None
+        
+# -------------------- Password Change Tab (Identity-Bearer direkt) --------------------
+class PasswordChangeTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.scraper = cloudscraper.create_scraper()
+        self.token_info = None
+        self.identity_access_token = None
+        self.identity_claims = {}
+        self.country = "DE"
+        self.game_id = "j68d"
+        self.display_name = ""
+        self._build()
+
+    def _build(self):
+        pad = 6
+        lf = ttk.LabelFrame(self, text="Login")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf)
+        self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*")
+        self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf)
+        self.e_cty.insert(0, "DE")
+        self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+
+        cf = ttk.LabelFrame(self, text="Passwort ändern")
+        cf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(cf, text="Neues Passwort").grid(row=0, column=0, sticky="w")
+        self.e_new_pw = ttk.Entry(cf, show="*")
+        self.e_new_pw.grid(row=0, column=1, padx=pad)
+
+        ttk.Button(self, text="🔑 Einzel ändern", command=self.change_password_click).pack(pady=(0, pad))
+
+        # Batch Änderung mit Thread
+        ttk.Button(self, text="🔁 Massenänderung (pwr.txt)", 
+                   command=lambda: threading.Thread(target=self.batch_change_passwords, daemon=True).start()
+                   ).pack(pady=(0, pad))
+
+        self.claim_text = tk.StringVar()
+        ttk.Label(self, textvariable=self.claim_text, justify="left").pack(pady=(0, pad))
+
+        self.log = ScrolledText(self, height=12, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_config(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        self.log.see(tk.END)
+
+    def _jwt_payload(self, jwt_token: str) -> dict:
+        try:
+            parts = jwt_token.split(".")
+            if len(parts) < 2:
+                return {}
+            import base64
+            pad_len = (-len(parts[1]) % 4)
+            payload = base64.urlsafe_b64decode(parts[1] + ("=" * pad_len))
+            return json.loads(payload.decode("utf-8", errors="ignore"))
+        except Exception:
+            return {}
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+        self.country = c
+        try:
+            acc = login(u, p, c)
+            acc["username"] = u
+            acc["password"] = p
+            acc["country"] = c
+            self.token_info = acc
+            self.display_name = acc.get("username", u)
+            self.write(f"[OK] Eingeloggt als {u}", "green")
+
+            at = self.token_info.get("access_token", "")
+            claims = self._jwt_payload(at)
+            if at:
+                self.identity_access_token = acc.get("access_token", "")
+                self.identity_claims = self._jwt_payload(self.identity_access_token)
+                self.write("[OK] Identity-Access-Token übernommen.", "green")
+                pretty = "\n".join([f"{k}: {v}" for k, v in self.identity_claims.items()])
+                self.claim_text.set(f"🔐 JWT Claims:\n{pretty}")
+            else:
+                self.write("[WARN] Identity-Token fehlte – GraphQL wird fehlschlagen.", "yellow")
+        except Exception as e:
+            self.write(f"[FEHLER] Login: {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def change_password_click(self):
+        if not self.token_info:
+            return messagebox.showwarning("Nicht eingeloggt", "Bitte zuerst einloggen.")
+        if not self.identity_access_token:
+            self.write("[FEHLER] Identity-Token fehlt – Passwort ändern nicht möglich.", "red")
+            return
+
+        new_pw = self.e_new_pw.get().strip()
+        if not new_pw:
+            return messagebox.showwarning("Fehler", "Neues Passwort eingeben.")
+
+        login_id = self.identity_claims.get("loginId") or self.identity_claims.get("sub") or ""
+        if not login_id:
+            self.write("[FEHLER] Konnte loginId nicht aus Identity-Token lesen.", "red")
+            return
+
+        profile_id = self.token_info.get("profile_id", "")
+        if not profile_id:
+            self.write("[FEHLER] profile_id fehlt aus Game-Login.", "red")
+            return
+
+        name = self.display_name or self.token_info.get("username", "")
+
+        try:
+            ok = self._change_password_edgelogins(
+                bearer=self.identity_access_token,
+                login_id=login_id,
+                profile_id=profile_id,
+                game_id=self.game_id,
+                name=name,
+                current_password=self.token_info.get("password", ""),
+                new_password=new_pw,
+                is_guest=False
+            )
+            if ok:
+                self.write("[OK] Passwort erfolgreich geändert.", "green")
+            else:
+                self.write("[FEHLER] Passwort ändern fehlgeschlagen (siehe Log).", "red")
+        except Exception as e:
+            self.write(f"[FEHLER] Passwort ändern: {e}", "red")
+
+    def batch_change_passwords(self):
+        try:
+            with open("pwr.txt", "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+        except Exception as e:
+            return self.write(f"[FEHLER] Datei pwr.txt konnte nicht gelesen werden: {e}", "red")
+
+        new_pw = self.e_new_pw.get().strip()
+        if not new_pw:
+            return self.write("[FEHLER] Neues Passwort ist leer.", "red")
+
+        success, fail = 0, 0
+
+        for line in lines:
+            try:
+                if ":" not in line:
+                    self.write(f"[WARN] Ungültiges Format (user:pass): {line}", "yellow")
+                    fail += 1
+                    continue
+                user, pw = line.split(":", 1)
+                acc = login(user, pw, self.country)
+                acc["username"] = user
+                acc["password"] = pw
+                acc["country"] = self.country
+                identity_access_token = acc.get("access_token", "")
+                identity_claims = self._jwt_payload(identity_access_token)
+                login_id = identity_claims.get("loginId") or identity_claims.get("sub")
+                profile_id = acc.get("profile_id", "")
+
+                ok = self._change_password_edgelogins(
+                    bearer=identity_access_token,
+                    login_id=login_id,
+                    profile_id=profile_id,
+                    game_id=self.game_id,
+                    name=user,
+                    current_password=pw,
+                    new_password=new_pw,
+                    is_guest=False
+                )
+                if ok:
+                    self.write(f"[OK] Passwort geändert für {user}", "green")
+                    success += 1
+                else:
+                    self.write(f"[FEHLER] Passwortänderung fehlgeschlagen für {user}", "red")
+                    fail += 1
+            except Exception as e:
+                self.write(f"[FEHLER] {user}: {e}", "red")
+                fail += 1
+
+        self.write(f"\n[INFO] Fertig. Erfolgreich: {success} / Fehler: {fail}\n", "cyan")
+
+    def _change_password_edgelogins(self, bearer: str, login_id: str, profile_id: str,
+                                    game_id: str, name: str,
+                                    current_password: str, new_password: str,
+                                    is_guest: bool = False) -> bool:
+        url = "https://edgelogins.eu.moviestarplanet.app/graphql"
+        headers = {
+            "Authorization": f"Bearer {bearer}",
+            "Content-Type": "application/json",
+            "Referer": "https://moviestarplanet2.com/",
+            "User-Agent": "Mozilla/5.0"
+        }
+
+        query = (
+            "mutation UpdateLogin($loginId: String!, $profileId: String!, $gameId: String!, $name: String, "
+            "$currentPassword: String!, $newPassword: String!, $isGuest: Boolean){"
+            "updateLoginProfile(input: { loginId: $loginId, profileId: $profileId, gameId: $gameId, name: $name, "
+            "passwords: { currentPassword: $currentPassword, newPassword: $newPassword}, isGuest: $isGuest}) "
+            "{success,loginProfile {loginId,loginName,profileId,profileName,isGuest},error}}"
+        )
+
+        variables = {
+            "loginId": login_id,
+            "profileId": profile_id,
+            "gameId": game_id,
+            "name": name,
+            "currentPassword": current_password,
+            "newPassword": new_password,
+            "isGuest": bool(is_guest),
+        }
+
+        payload = {"query": query, "variables": variables}
+
+        try:
+            r = self.scraper.post(url, headers=headers, json=payload, timeout=20)
+            r.raise_for_status()
+            js = r.json()
+            data = js.get("data", {}).get("updateLoginProfile", {})
+            if data.get("success") is True:
+                return True
+            return False
+        except Exception:
+            return False
+        
+
+# -------------------- Double Gift Sender --------------------
+class GiftDoubleSenderTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.scraper = cloudscraper.create_scraper()
+        self.sender = None
+        self.receivers = []
+        self.start_event = threading.Event()
+        self._build()
+
+    def _build(self):
+        pad = 6
+
+        # Sender login
+        lf_sender = ttk.LabelFrame(self, text="🎁 Absender-Account")
+        lf_sender.pack(fill="x", padx=pad, pady=pad)
+
+        self.e_sender_user = ttk.Entry(lf_sender)
+        self.e_sender_pw = ttk.Entry(lf_sender, show="*")
+        self.e_sender_cty = ttk.Entry(lf_sender); self.e_sender_cty.insert(0, "DE")
+
+        ttk.Label(lf_sender, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_sender_user.grid(row=0, column=1, padx=pad)
+        ttk.Label(lf_sender, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_sender_pw.grid(row=1, column=1, padx=pad)
+        ttk.Label(lf_sender, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_sender_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf_sender, text="Login Absender", command=self.login_sender).grid(row=3, columnspan=2, pady=pad)
+
+        # Receiver logins
+        lf_recv = ttk.LabelFrame(self, text="🎯 Empfänger-Accounts (2x)")
+        lf_recv.pack(fill="x", padx=pad, pady=pad)
+        self.receiver_entries = []
+
+        for i in range(2):
+            u = ttk.Entry(lf_recv)
+            p = ttk.Entry(lf_recv, show="*")
+            c = ttk.Entry(lf_recv); c.insert(0, "DE")
+            ttk.Label(lf_recv, text=f"Benutzer {i+1}").grid(row=i*3, column=0, sticky="w")
+            u.grid(row=i*3, column=1, padx=pad)
+            ttk.Label(lf_recv, text="Passwort").grid(row=i*3+1, column=0, sticky="w")
+            p.grid(row=i*3+1, column=1, padx=pad)
+            ttk.Label(lf_recv, text="Land").grid(row=i*3+2, column=0, sticky="w")
+            c.grid(row=i*3+2, column=1, padx=pad)
+            self.receiver_entries.append((u, p, c))
+
+        ttk.Button(lf_recv, text="Login Empfänger", command=self.login_receivers).grid(row=6, columnspan=2, pady=pad)
+
+        # Gift Details
+        gf = ttk.LabelFrame(self, text="🎁 Geschenk senden")
+        gf.pack(fill="x", padx=pad, pady=pad)
+        ttk.Label(gf, text="🎁 InventoryItemId").grid(row=0, column=0)
+        self.e_itemid = ttk.Entry(gf)
+        self.e_itemid.grid(row=0, column=1, padx=pad)
+        ttk.Button(gf, text="🚀 Jetzt senden & öffnen", command=self.send_and_open).grid(row=3, columnspan=2, pady=pad)
+
+        # Log
+        self.log = tk.Text(self, height=12, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def write(self, msg, col=None):
+        self.log.insert(tk.END, msg + "\n")
+        self.log.see(tk.END)
+
+    def login_sender(self):
+        u = self.e_sender_user.get().strip()
+        p = self.e_sender_pw.get().strip()
+        c = self.e_sender_cty.get().strip().upper()
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Absenderdaten ausfüllen.")
+        try:
+            acc = login(u, p, c)
+            acc["country"] = c
+            acc["username"] = u
+            self.sender = acc
+            self.write(f"[OK] Absender eingeloggt: {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] Absender-Login: {e}", "red")
+
+    def login_receivers(self):
+        self.receivers.clear()
+        for i, (u_entry, p_entry, c_entry) in enumerate(self.receiver_entries):
+            u = u_entry.get().strip()
+            p = p_entry.get().strip()
+            c = c_entry.get().strip().upper()
+            if not all([u, p, c]):
+                return messagebox.showwarning("Fehler", f"Empfänger {i+1} unvollständig.")
+            try:
+                acc = login(u, p, c)
+                acc["username"] = u
+                acc["country"] = c
+                self.receivers.append(acc)
+                self.write(f"[OK] Empfänger {i+1} eingeloggt: {u}", "green")
+            except Exception as e:
+                self.write(f"[FEHLER] Empfänger {i+1}: {e}", "red")
+
+    def send_and_open(self):
+        if not self.sender or len(self.receivers) < 2:
+            return messagebox.showwarning("Fehler", "Absender und 2 Empfänger müssen eingeloggt sein.")
+        item_id = self.e_itemid.get().strip()
+        if not item_id:
+            return messagebox.showwarning("Fehler", "Bitte Item ID eingeben.")
+
+        self.write("[INFO] Sende Geschenke gleichzeitig...", "yellow")
+
+        # Geschenke gleichzeitig senden
+        threads = []
+        for recv in self.receivers:
+            t = threading.Thread(target=self._give_gift, args=(self.sender, recv, item_id), daemon=True)
+            threads.append(t)
+            t.start()
+
+        def proceed_after_send():
+            self.write("[INFO] Geschenke gesendet. Sammle giftIds...", "yellow")
+            gift_ids = []
+            for r in self.receivers:
+                gid = self._fetch_latest_gift(r)
+                if gid:
+                    gift_ids.append((r, gid))
+
+            if len(gift_ids) < 2:
+                self.write("[FEHLER] Konnte nicht beide Geschenke finden.", "red")
+                return
+
+            self.write(f"[OK] Geschenke gefunden. Öffne jetzt 5x pro Empfänger (synchron)...", "green")
+
+            # 10 Threads (5 pro Account), warten bis alle bereit, dann exakt gleichzeitig starten
+            barrier = threading.Barrier(parties=10)
+
+            for acc, gid in gift_ids:
+                for _ in range(5):
+                    t = threading.Thread(
+                        target=self._open_gift_barrier,
+                        args=(acc, gid, barrier),
+                        daemon=True
+                    )
+                    t.start()
+
+        self.after(1500, proceed_after_send)
+
+    def _open_gift_barrier(self, acc, gift_id, barrier):
+        try:
+            barrier.wait()  # Warte auf alle Threads
+        except threading.BrokenBarrierError:
+            self.after(0, self.write, f"[FEHLER] Barrier unterbrochen für {acc['username']}", "red")
+            return
+
+        payload = {
+            "query": """
+            mutation OpenGift($giftId: ID!, $receiverProfileId: ID!) {
+                openGift(input: {
+                    giftId: $giftId,
+                    receiverProfileId: $receiverProfileId
+                }) {
+                    success
+                    error
+                    item { id }
+                }
+            }
+            """,
+            "variables": {
+                "giftId": gift_id,
+                "receiverProfileId": acc["profile_id"]
+            }
+        }
+        headers = {
+            "Authorization": f"Bearer {acc['access_token']}",
+            "Content-Type": "application/json",
+        }
+        try:
+            res = self.scraper.post("https://eu.mspapis.com/edgegifts/graphql/graphql", headers=headers, json=payload)
+            js = res.json()
+            data = js.get("data", {}).get("openGift", {})
+            if data.get("success"):
+                item_id = data["item"]["id"]
+                self.after(0, self.write, f"[OK] Geschenk geöffnet ({acc['username']}) Item: {item_id}", "green")
+            else:
+                err = data.get("error", "Unbekannter Fehler")
+                self.after(0, self.write, f"[FEHLER] Öffnen ({acc['username']}): {err}", "red")
+        except Exception as e:
+            self.after(0, self.write, f"[FEHLER] Öffnen ({acc['username']}): {e}", "red")
+
+    def _give_gift(self, sender, receiver, item_id):
+        payload = {
+            "query": """
+            mutation GiveGifts($giverProfileId: ID!, $receiverProfileId: ID!, $inventoryItemId: ID!, $gameId: String!, $message: String, $additionalData: String) {
+                giveGift(input: {
+                    giverProfileId: $giverProfileId
+                    receiverProfileId: $receiverProfileId
+                    inventoryItemId: $inventoryItemId
+                    gameId: $gameId
+                    message: $message
+                    additionalData: $additionalData
+                }) {
+                    success
+                    error
+                    gift { giftId }
+                }
+            }
+            """,
+            "variables": {
+                "giverProfileId": sender["profile_id"],
+                "receiverProfileId": receiver["profile_id"],
+                "inventoryItemId": item_id,
+                "gameId": "j68d",
+                "message": "",
+                "additionalData": ""
+            }
+        }
+        headers = {
+            "Authorization": f"Bearer {sender['access_token']}",
+            "Content-Type": "application/json",
+            "Referer": "https://moviestarplanet2.com/",
+        }
+        try:
+            res = self.scraper.post("https://eu.mspapis.com/edgegifts/graphql/graphql", headers=headers, json=payload)
+            js = res.json()
+            if js.get("data", {}).get("giveGift", {}).get("success"):
+                self.write(f"[OK] Geschenk an {receiver['username']} gesendet.", "green")
+            else:
+                err = js.get("data", {}).get("giveGift", {}).get("error", "Unbekannter Fehler")
+                self.write(f"[FEHLER] Senden an {receiver['username']}: {err}", "red")
+        except Exception as e:
+            self.write(f"[FEHLER] Geschenk senden: {e}", "red")
+
+    def _fetch_latest_gift(self, acc):
+        self.write(f"[INFO] Prüfe Geschenke für {acc['username']}", "blue")
+        payload = {
+            "query": """
+            query CheckGifts($profileId: ID!, $gameId: String!, $pageSize: Int, $cursor: String) {
+                gifts(input: {profileId: $profileId, gameId: $gameId, pageSize: $pageSize, cursor: $cursor }) {
+                    gifts { giftId }
+                }
+            }
+            """,
+            "variables": {
+                "profileId": acc["profile_id"],
+                "gameId": "j68d",
+                "pageSize": 12,
+                "cursor": None
+            }
+        }
+        headers = {
+            "Authorization": f"Bearer {acc['access_token']}",
+            "Content-Type": "application/json",
+        }
+        try:
+            res = self.scraper.post("https://eu.mspapis.com/edgegifts/graphql/graphql", headers=headers, json=payload)
+            res.raise_for_status()
+            data = res.json().get("data", {}).get("gifts", {}).get("gifts", [])
+            if data:
+                gift_id = data[0]["giftId"]
+                self.write(f"[OK] Geschenk gefunden für {acc['username']}: {gift_id}", "green")
+                return gift_id
+            else:
+                self.write(f"[WARN] Keine Geschenke gefunden für {acc['username']}", "yellow")
+        except Exception as e:
+            self.write(f"[FEHLER] Geschenk abrufen ({acc['username']}): {e}", "red")
+        return ""
+
+    def _open_gift(self, acc, gift_id):
+        self.start_event.wait()
+        payload = {
+            "query": """
+            mutation OpenGift($giftId: ID!, $receiverProfileId: ID!) {
+                openGift(input: {
+                    giftId: $giftId,
+                    receiverProfileId: $receiverProfileId
+                }) {
+                    success
+                    error
+                    item { id }
+                }
+            }
+            """,
+            "variables": {
+                "giftId": gift_id,
+                "receiverProfileId": acc["profile_id"]
+            }
+        }
+        headers = {
+            "Authorization": f"Bearer {acc['access_token']}",
+            "Content-Type": "application/json",
+        }
+        try:
+            res = self.scraper.post("https://eu.mspapis.com/edgegifts/graphql/graphql", headers=headers, json=payload)
+            res.raise_for_status()
+            js = res.json()
+            data = js.get("data", {}).get("openGift", {})
+            if data.get("success"):
+                item_id = data["item"]["id"]
+                self.after(0, self.write, f"[OK] Geschenk geöffnet ({acc['username']}) Item: {item_id}", "green")
+            else:
+                err = data.get("error", "Unbekannter Fehler")
+                self.after(0, self.write, f"[FEHLER] Öffnen ({acc['username']}): {err}", "red")
+        except Exception as e:
+            self.after(0, self.write, f"[FEHLER] Öffnen ({acc['username']}): {e}", "red")
+
+
+# -------------------- Monster --------------------
+class MonsterTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.token_info = None
+        self.scrapers = {}
+        self._build()
+
+    def _build(self):
+        pad = 6
+
+        lf = ttk.LabelFrame(self, text="Login")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf)
+        self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*")
+        self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf)
+        self.e_cty.insert(0, "DE")
+        self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+
+        self.e_reward = ttk.Entry(self)
+        self.e_reward.insert(0, "Item ID zum claimen")
+        self.e_reward.pack(padx=pad, pady=(0, 5), fill="x")
+
+        ttk.Button(self, text="🥥 Claim", command=self.start_claiming).pack(pady=pad)
+
+        self.combo_claim = ttk.Combobox(self, values=["1", "2", "3", "4", "5", "6", "7"], state="readonly", width=5)
+        self.combo_claim.set("1")
+        self.combo_claim.pack(pady=(0, 2))
+        ttk.Button(self, text="📜 Mehrere Claim", command=self.list_claim).pack(pady=(0, pad))
+
+        ttk.Button(self, text="🥭 ItemClaim", command=self.start_item_claim).pack(pady=pad)
+
+        self.combo_item = ttk.Combobox(self, values=["1", "2", "3", "4", "5", "6", "7"], state="readonly", width=5)
+        self.combo_item.set("1")
+        self.combo_item.pack(pady=(0, 2))
+        ttk.Button(self, text="📜 Mehrere ItemClaim", command=self.list_item_claim).pack(pady=(0, pad))
+
+        self.log = tk.Text(self, height=10, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def get_scraper(self, username):
+        return self.scrapers.get(username) or cloudscraper.create_scraper()
+
+    def load_proxies(self):
+        proxies = []
+        try:
+            with open("proxies.txt", "r", encoding="utf-8") as f:
+                for line in f:
+                    if "@" in line:
+                        userpass, host, port = line.strip().split("@")
+                        user, pwd = userpass.split(":")
+                        proxy_url = f"http://{user}:{pwd}@{host}:{port}"
+                        proxies.append({"http": proxy_url, "https": proxy_url})
+        except:
+            pass
+        return proxies
+
+    def assign_scraper(self, username):
+        proxy_list = self.load_proxies()
+        scraper = cloudscraper.create_scraper()
+        if proxy_list:
+            proxy = random.choice(proxy_list)
+            scraper.proxies = proxy
+        self.scrapers[username] = scraper
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+        try:
+            self.assign_scraper(u)
+            self.token_info = login(u, p, c, proxies=self.get_scraper(u).proxies)
+            self.token_info["username"] = u
+            self.write(f"[OK] Eingeloggt als {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def start_claiming(self):
+        if not self.token_info:
+            return messagebox.showwarning("Fehler", "Bitte zuerst einloggen!")
+        threading.Thread(target=self.claim_rewards, args=(self.token_info,), daemon=True).start()
+
+    def start_item_claim(self):
+        if not self.token_info:
+            return messagebox.showwarning("Fehler", "Bitte zuerst einloggen!")
+        threading.Thread(target=self.claim_item_reward, args=(self.token_info,), daemon=True).start()
+
+    def list_claim(self):
+        def worker():
+            file_id = self.combo_claim.get()
+            suffix = '' if file_id == '1' else file_id
+            dateiname = f"acclist{suffix}.txt"
+            try:
+                with open(dateiname, "r", encoding="utf-8") as f:
+                    for line in f:
+                        parts = line.strip().split(":")
+                        if len(parts) < 2: continue
+                        u, p = parts[0], parts[1]
+                        c = parts[2] if len(parts) >= 3 else "DE"
+                        try:
+                            self.assign_scraper(u)
+                            token_info = login(u, p, c, proxies=self.get_scraper(u).proxies)
+                            token_info["username"] = u
+                            self.write(f"[Login] {u}", "green")
+                            self.claim_rewards(token_info)
+                        except Exception as e:
+                            self.write(f"[FEHLER] {u}: {e}", "red")
+                        time.sleep(0.5)
+            except Exception as e:
+                self.write(f"[FEHLER] Datei: {e}", "red")
+        threading.Thread(target=worker, daemon=True).start()
+
+    def list_item_claim(self):
+        def worker():
+            file_id = self.combo_item.get()
+            suffix = '' if file_id == '1' else file_id
+            dateiname = f"acclist{suffix}.txt"
+            try:
+                with open(dateiname, "r", encoding="utf-8") as f:
+                    for line in f:
+                        parts = line.strip().split(":")
+                        if len(parts) < 2: continue
+                        u, p = parts[0], parts[1]
+                        c = parts[2] if len(parts) >= 3 else "DE"
+                        try:
+                            self.assign_scraper(u)
+                            token_info = login(u, p, c, proxies=self.get_scraper(u).proxies)
+                            token_info["username"] = u
+                            self.write(f"[Login] {u}", "cyan")
+                            self.claim_item_reward(token_info)
+                        except Exception as e:
+                            self.write(f"[FEHLER] {u}: {e}", "red")
+                        time.sleep(0.5)
+            except Exception as e:
+                self.write(f"[FEHLER] Datei: {e}", "red")
+        threading.Thread(target=worker, daemon=True).start()
+
+    def claim_rewards(self, token_info):
+        token = token_info['access_token']
+        profile_id = token_info['profile_id']
+        username = token_info.get("username", "Unbekannt")
+        scraper = self.get_scraper(username)
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Referer": "https://moviestarplanet2.com/",
+            "User-Agent": "Mozilla/5.0"
+        }
+        payload = {"state": "Claimed"}
+        actions = [
+            ("halloween_25_plaza_monster", 6),
+            #("summer_25_coconut_tree_03", 3),
+            ("halloween_25_diamond_shop_monster", 4),
+            ("halloween_25_forest_monster", 3),
+            ("halloween_25_spider_minigame_forest", 3),
+            ("halloween_25_spider_minigame", 3),
+            ("halloween_25_spider_minigame_plaza", 3),
+            ("halloween_25_beach_monster", 5),
+            ("halloween_25_event_chatroom_monster", 3),
+            ("halloween_25_spider_minigame_tokio", 3),
+            #("summer_25_coconut_tree_05", 3),
+            #("summer_25_party_night_coconut", 2),
+            #("summer_25_party_day_coconut", 4),
+            #("summer_25_under_water_coconut", 2),
+            ("halloween_25_vip_club_monster", 2)
+        ]
+        for reward_id, count in actions:
+            url = f"https://eu.mspapis.com/timelimitedrewards/v2/profiles/{profile_id}/games/j68d/rewards/{reward_id}"
+            for _ in range(count):
+                try:
+                    res = scraper.put(url, headers=headers, json=payload, timeout=10)
+                    if res.status_code == 200:
+                        self.write(f"[OK] {username}: {reward_id}", "green")
+                    else:
+                        self.write(f"[FEHLER] {username}: {reward_id}: {res.status_code}", "red")
+                except Exception as e:
+                    self.write(f"[FEHLER] {username}: {reward_id}: {e}", "red")
+                time.sleep(0.01)
+
+    def claim_item_reward(self, token_info):
+        token = token_info['access_token']
+        profile_id = token_info['profile_id']
+        username = token_info.get("username", "Unbekannt")
+        reward_id = self.e_reward.get().strip()
+        scraper = self.get_scraper(username)
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "Referer": "https://moviestarplanet2.com/",
+            "User-Agent": "Mozilla/5.0"
+        }
+        payload = {"state": "Claimed"}
+        url = f"https://eu.mspapis.com/timelimitedrewards/v2/profiles/{profile_id}/games/j68d/rewards/{reward_id}"
+        try:
+            res = scraper.put(url, headers=headers, json=payload, timeout=10)
+            if res.status_code == 200:
+                self.write(f"[OK] {username}: {reward_id}", "green")
+            else:
+                self.write(f"[FEHLER] {username}: {reward_id}: {res.status_code}", "red")
+        except Exception as e:
+            self.write(f"[FEHLER] {username}: {reward_id}: {e}", "red")
+
+    def write(self, msg, col=None):
+        self.log.insert(tk.END, msg + "\n")
+        self.log.see(tk.END)
+
+
+# -------------------- MoodTab --------------------
+class MoodTab(ttk.Frame):
+    MOODS = {
+        "Ice Skating": "noshoes_skating",
+        "Swimming": "swim_new",
+        "Bunny": "bunny_hold",
+        "Spider Crawl": "2023_spidercrawl_lsz",
+        "My World": "bad_2022_teenwalk_dg",
+        "Frosty": "xmas_2022_frosty_dg",
+        "Freezing": "xmas_2022_freezing_lsz",
+        "Like a Turkey": "2022_turkeywalk_lsz",
+        "Sacking Behind": "2022_easter_sackjump_dg",
+        "Cool Slide": "cool_slide",
+        "Like a Frog": "very_2022_froglike_lsz"
+    }
+
+    def __init__(self, master):
+        super().__init__(master)
+        self.token_info = None
+        self.scraper = cloudscraper.create_scraper()
+        self.attributes = {}
+        self._build()
+
+    def _build(self):
+        pad = 6
+        lf = ttk.LabelFrame(self, text="Login")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf)
+        self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*")
+        self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf)
+        self.e_cty.insert(0, "DE")
+        self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+
+        mood_frame = ttk.LabelFrame(self, text="Mood ändern")
+        mood_frame.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(mood_frame, text="🎭 Mood wählen").grid(row=0, column=0, sticky="w")
+        self.mood_dropdown = ttk.Combobox(
+            mood_frame, state="readonly", values=list(self.MOODS.keys())
+        )
+        self.mood_dropdown.set("Ice Skating")
+        self.mood_dropdown.grid(row=0, column=1, padx=pad, sticky="ew")
+        mood_frame.columnconfigure(1, weight=1)
+
+        ttk.Button(self, text="🎯 Mood ändern", command=self.change_mood).pack(pady=pad)
+
+        self.log = ScrolledText(self, height=10, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+
+        try:
+            self.token_info = login(u, p, c)
+            self.token_info["username"] = u
+            self.write(f"[OK] Eingeloggt als {u}", "green")
+            self.load_attributes()
+        except Exception as e:
+            self.write(f"[FEHLER] {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def load_attributes(self):
+        profile_id = self.token_info["profile_id"]
+        token = self.token_info["access_token"]
+        url = f"https://eu.mspapis.com/profileattributes/v1/profiles/{profile_id}/games/j68d/attributes"
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json"
+        }
+        try:
+            r = self.scraper.get(url, headers=headers)
+            r.raise_for_status()
+            data = r.json()
+            self.attributes = data.get("additionalData", {})
+            self.write("[INFO] Daten erfolgreich geladen.", "cyan")
+        except Exception as e:
+            self.write(f"[FEHLER] Daten konnten nicht geladen werden: {e}", "red")
+
+    def change_mood(self):
+        if not self.token_info or not self.attributes:
+            return messagebox.showwarning("Fehler", "Bitte zuerst einloggen und Daten laden.")
+
+        mood_name = self.mood_dropdown.get()
+        mood_code = self.MOODS[mood_name]  # z. B. "noshoes_skating"
+
+        try:
+            profile_id = self.token_info["profile_id"]
+            token = self.token_info["access_token"]
+            url = f"https://eu.mspapis.com/profileattributes/v1/profiles/{profile_id}/games/j68d/attributes"
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+
+            # Lade aktuelle Attribute
+            payload = {
+                "additionalData": dict(self.attributes)
+            }
+
+            # Mood direkt im Root-Level von additionalData setzen
+            payload["additionalData"]["Mood"] = mood_code
+
+            res = self.scraper.put(url, headers=headers, json=payload)
+
+            if res.status_code == 200:
+                self.write(f"[OK] Mood geändert zu: {mood_code}", "green")
+            else:
+                self.write(f"[FEHLER] Änderung fehlgeschlagen: {res.status_code} - {res.text}", "red")
+
+        except Exception as e:
+            self.write(f"[FEHLER] Mood-Änderung fehlgeschlagen: {e}", "red")
+
+    def write(self, msg, col=None):
+        tag = None
+        if col:
+            self.log.tag_configure(col, foreground=col)
+            tag = col
+        self.log.insert(tk.END, msg + "\n", tag)
+        self.log.see(tk.END)
+
+
+# -------------------- EventClaim --------------------
+class EventClaimQuestTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.scrapers = {}
+        self.accounts = []
+        self._build()
+
+    def _build(self):
+        pad = 6
+
+        lf = ttk.LabelFrame(self, text="Login manuell")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf)
+        self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*")
+        self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf)
+        self.e_cty.insert(0, "DE")
+        self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+
+        ttk.Label(self, text="📄 Liste auswählen").pack()
+        self.combo_claim = ttk.Combobox(self, values=["1", "2", "3", "4", "5", "6", "7"], state="readonly", width=5)
+        self.combo_claim.set("1")
+        self.combo_claim.pack(pady=(0, 2))
+        ttk.Button(self, text="📜 Liste einloggen", command=self.login_from_file).pack(pady=(0, pad))
+
+        ttk.Button(self, text="🌴 Summer Quests starten", command=self.start_quests).pack(pady=pad)
+
+        self.log = tk.Text(self, height=12, bg="#000000", fg="white", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+        try:
+            scraper = cloudscraper.create_scraper()
+            token_info = login(u, p, c, proxies=scraper.proxies)
+            token_info["username"] = u
+            self.scrapers[u] = scraper
+            self.accounts.append(token_info)
+            self.write(f"[Login] {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] {e}", "red")
+            messagebox.showerror("Login fehlgeschlagen", str(e))
+
+    def login_from_file(self):
+        file_id = self.combo_claim.get()
+        suffix = '' if file_id == '1' else file_id
+        dateiname = f"kokosnuss{suffix}.txt"
+
+        def worker():
+            try:
+                with open(dateiname, "r", encoding="utf-8") as f:
+                    for line in f:
+                        parts = line.strip().split(":")
+                        if len(parts) < 2:
+                            continue
+                        u, p = parts[0], parts[1]
+                        c = parts[2] if len(parts) >= 3 else "DE"
+                        try:
+                            scraper = cloudscraper.create_scraper()
+                            token_info = login(u, p, c, proxies=scraper.proxies)
+                            token_info["username"] = u
+                            self.scrapers[u] = scraper
+                            self.write(f"[Login] {u}", "green")
+                            self.complete_all_quests(token_info)  # Quests direkt nach Login
+                        except Exception as e:
+                            self.write(f"[FEHLER] {u}: {e}", "red")
+                        time.sleep(2)
+            except Exception as e:
+                self.write(f"[FEHLER] Datei: {e}", "red")
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def start_quests(self):
+        for acc in self.accounts:
+            threading.Thread(target=self.complete_all_quests, args=(acc,), daemon=True).start()
+
+    def complete_all_quests(self, acc):
+        quest_ids = [
+            "halloween_25_monster_hunt_1", "halloween_25_monster_hunt_2", "halloween_25_monster_hunt_3",
+            "halloween_25_monster_hunt_4", "halloween_25_monster_hunt_5", "halloween_25_monster_hunt_6",
+            "halloween_25_monster_hunt_7", "halloween_25_monster_hunt_8", "halloween_25_monster_hunt_9",
+            "halloween_25_monster_hunt_10", "halloween_25_monster_hunt_11", "halloween_25_monster_hunt_12",
+            "halloween_25_monster_hunt_13", "halloween_25_monster_hunt_14", "halloween_25_monster_hunt_15",
+            "halloween_25_monster_hunt_16", "halloween_25_monster_hunt_17", "halloween_25_monster_hunt_18",
+        ]
+
+        headers = {
+            "Authorization": f"Bearer {acc['access_token']}",
+            "Content-Type": "application/json",
+            "Referer": "https://moviestarplanet2.com/",
+            "User-Agent": "Mozilla/5.0"
+        }
+        payload = {"state": "Complete"}
+        profile_id = acc["profile_id"]
+        username = acc["username"]
+        scraper = self.scrapers[username]
+
+        for qid in reversed(quest_ids):
+            url = f"https://eu.mspapis.com/quests/v2/profiles/{profile_id}/games/j68d/quests/{qid}/state"
+            try:
+                res = scraper.put(url, headers=headers, json=payload, timeout=10)
+                if res.status_code == 200:
+                    self.write(f"[OK] {username}: {qid}", "green")
+                else:
+                    self.write(f"[FEHLER] {username}: {qid}: {res.status_code}", "red")
+            except Exception as e:
+                self.write(f"[FEHLER] {username}: {qid}: {e}", "red")
+            time.sleep(0.2)
+
+    def write(self, msg, col=None):
+        self.log.insert(tk.END, msg + "\n")
+        self.log.see(tk.END)
+
+
+
+
+class MultiGreetingTab(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.scraper = cloudscraper.create_scraper()
+        self.accounts = []
+        self.threads = []
+        self.start_event = threading.Event()
+        self._build()
+
+    def _build(self):
+        pad = 6
+
+        lf = ttk.LabelFrame(self, text="Login (1 Account → an mehrere Profile senden)")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername:").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf); self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort:").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*"); self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land:").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf); self.e_cty.insert(0, "DE"); self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="🔑 Login", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+
+        gf = ttk.LabelFrame(self, text="🎯 Ziel-Profile")
+        gf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(gf, text="Empfänger profileIds (Kommagetrennt oder Zeilenweise):").grid(row=0, column=0, sticky="w")
+        self.e_targets = tk.Text(gf, height=3, width=40)
+        self.e_targets.grid(row=1, column=0, columnspan=2, padx=pad, pady=(0,5))
+
+        ttk.Button(self, text="🧠 Threads vorbereiten", command=self.prepare_threads).pack(pady=pad)
+        ttk.Button(self, text="🚀 Jetzt starten", command=self.start_event.set).pack(pady=pad)
+
+        self.log = tk.Text(self, height=10, bg="#000", fg="#0f0", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Bitte alle Felder ausfüllen!")
+
+        try:
+            token_info = login(u, p, c)
+            token_info["username"] = u
+            token_info["country"] = c
+            self.accounts = [token_info]
+            self.write(f"[OK] Eingeloggt als {u}", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] Login: {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def prepare_threads(self):
+        if not self.accounts:
+            return messagebox.showwarning("Fehler", "Bitte zuerst einloggen!")
+
+        targets_raw = self.e_targets.get("1.0", tk.END).strip()
+        if not targets_raw:
+            return messagebox.showwarning("Fehler", "Bitte Empfänger-IDs angeben.")
+
+        targets = [t.strip() for t in targets_raw.replace("\n", ",").split(",") if t.strip()]
+        if not targets:
+            return messagebox.showwarning("Fehler", "Keine gültigen IDs gefunden.")
+
+        self.threads.clear()
+        self.start_event.clear()
+
+        acc = self.accounts[0]
+
+        for receiver_id in targets:
+            t = threading.Thread(target=self.send_greeting, args=(acc, receiver_id), daemon=True)
+            self.threads.append(t)
+
+        for t in self.threads:
+            t.start()
+
+        self.write(f"[INFO] {len(self.threads)} Threads vorbereitet. Warte auf Startsignal...", "yellow")
+
+    def send_greeting(self, acc, receiver_id):
+        self.start_event.wait()  # Synchronstart
+
+        token = acc["access_token"]
+        session_id = str(uuid.uuid4())
+        device_id = uuid.uuid4().hex.upper()
+        ua = random.choice([
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Mozilla/5.0 (Linux; Android 12; SM-A127F)",
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X)"
+        ])
+
+        headers = {
+            "authorization": f"Bearer {token}",
+            "content-type": "application/json",
+            "User-Agent": ua,
+            "Referer": f"https://moviestarplanet2.com/?v={random.randint(1000,9999)}",
+            "sessionId": session_id,
+            "userDeviceId": device_id
+        }
+
+        payload = {
+            "id": "SendGreetings-159BDD7706D824BB8F14874A7FAE3368",  # bleibt gleich
+            "variables": {
+                "greetingType": "Autograph",  # bleibt gleich
+                "receiverProfileId": receiver_id,
+                "ignoreDailyCap": False
+            }
+        }
+
+        try:
+            res = self.scraper.post("https://eu.mspapis.com/federationgateway/graphql",
+                                    headers=headers, json=payload, timeout=8)
+            res.raise_for_status()
+            data = res.json()
+            success = data.get("data", {}).get("sendGreeting", {}).get("success", False)
+            if success:
+                self.after(0, self.write, f"✅ Erfolgreich an {receiver_id} gesendet", "green")
+            else:
+                self.after(0, self.write, f"❌ Blockiert / Antwort: {data}", "red")
+        except Exception as e:
+            self.after(0, self.write, f"[!] Fehler bei Empfänger {receiver_id}: {e}", "red")
+
+    def write(self, msg, color=None):
+        self.log.insert(tk.END, msg + "\n")
+        self.log.see(tk.END)
+
+
+class PetColorRedeemTab(ttk.Frame):
+    """
+    Tool zum Einlösen eines Tier-Items mit einer einzelnen Farbe.
+    - profile_id kommt aus token_info['profile_id'] nach login()
+    - GUID muss im Feld angegeben werden
+    - Farbe als Hex (z. B. #FEFFFEFF oder #9D0001FF25) angeben
+    Hinweis: Dieses Tool macht eine legitime Claim-Anfrage an deinen lokalen Server/API.
+    """
+
+    def __init__(self, master):
+        super().__init__(master)
+        self.token_info = None
+        self.scraper = cloudscraper.create_scraper()
+        self._build()
+
+    def _build(self):
+        pad = 6
+        lf = ttk.LabelFrame(self, text="Login")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf); self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*"); self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf); self.e_cty.insert(0,"DE"); self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Anmelden", command=self.login_click).grid(row=3, columnspan=2, pady=pad)
+
+        # Claim-Bereich
+        cf = ttk.LabelFrame(self, text="Tier einlösen (eine Farbe)")
+        cf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(cf, text="ProfileId (wird aus Login verwendet)").grid(row=0, column=0, sticky="w", padx=pad, pady=(4,0))
+        self.profile_label = ttk.Label(cf, text="(nicht eingeloggt)")
+        self.profile_label.grid(row=0, column=1, sticky="w", padx=pad, pady=(4,0))
+
+        ttk.Label(cf, text="GUID (Item) :").grid(row=1, column=0, sticky="w", padx=pad, pady=(6,0))
+        self.e_guid = ttk.Entry(cf, width=48)
+        self.e_guid.grid(row=1, column=1, padx=pad, pady=(6,0))
+
+        ttk.Label(cf, text="Farbe zum Beispiel #000000:").grid(row=2, column=0, sticky="w", padx=pad, pady=(6,0))
+        self.e_color = ttk.Entry(cf, width=48)
+        self.e_color.grid(row=2, column=1, padx=pad, pady=(6,0))
+
+        ttk.Button(cf, text="Einlösen", command=self.claim_click).grid(row=3, columnspan=2, pady=pad) 
+
+        # Optionen / Hinweis
+        ttk.Label(self, text="Hinweis: Nur eine Farbe und mit Hashtag eingeben!", foreground="orange").pack(fill="x", padx=pad)
+
+        # Log
+        self.log = ScrolledText(self, height=12, bg="#000000", fg="#ffffff", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    def login_click(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+
+        if not all([u, p, c]):
+            return messagebox.showwarning("Fehler", "Alle Felder ausfüllen!")
+
+        try:
+            self.token_info = login(u, p, c)  # erwartet access_token + profile_id
+            pid = self.token_info.get("profile_id") or self.token_info.get("profileId") or "(unknown)"
+            self.profile_label.config(text=str(pid))
+            self.write(f"[OK] Eingeloggt als {u} (profile_id: {pid})", "green")
+        except Exception as e:
+            self.write(f"[FEHLER] Login: {e}", "red")
+            messagebox.showerror("Login", str(e))
+
+    def _normalize_color(self, color_str):
+        """
+        Normiert und validiert Hex-Farben.
+        Akzeptiert: '#' gefolgt von 3 bis 12 hex-Zeichen (also #RGB, #RRGGBB, #RRGGBBAA, oder längere Formen wie #9D0001FF25).
+        Gibt den String in Großbuchstaben zurück oder None bei ungültigem Format.
+        """
+        if not color_str:
+            return None
+        c = color_str.strip()
+        if not c.startswith("#"):
+            c = "#" + c
+        # Regex: # + 3..12 hex chars
+        if re.fullmatch(r"#[A-Fa-f0-9]{3,12}", c):
+            return c.upper()
+        return None
+
+    def claim_click(self):
+        if not self.token_info:
+            return messagebox.showwarning("Nicht eingeloggt", "Bitte zuerst einloggen.")
+
+        guid = self.e_guid.get().strip()
+        color = self.e_color.get().strip()
+
+        if not guid:
+            return messagebox.showwarning("Fehler", "Bitte GUID eingeben.")
+        if not color:
+            return messagebox.showwarning("Fehler", "Bitte Farbe eingeben.")
+
+        color_norm = self._normalize_color(color)
+        if not color_norm:
+            return messagebox.showwarning("Fehler", "Ungültiges Farbformat. Erlaubt: # + 3..12 hex-Zeichen (z.B. #9D0001FF25).")
+
+        # start background thread für die Request
+        t = threading.Thread(target=self._do_claim, args=(guid, color_norm), daemon=True)
+        t.start()
+
+    def _do_claim(self, guid, color_norm):
+        """
+        Baut payload wie im Beispiel:
+        payload = { "itemMetadata": "{\"NebulaData\":{\"Colors\":\"#FEFFFEFF\"}}" }
+        und sendet PUT an /claim
+        """
+        try:
+            profile_id = self.token_info.get("profile_id") or self.token_info.get("profileId")
+            if not profile_id:
+                self.after(0, self.write, "[FEHLER] profile_id nicht gefunden im token_info.", "red")
+                return
+
+            # safe URL-encoding: profile_id könnte bereits URL-codiert sein (z.B. DE%7C22969330)
+            url = f"https://eu.mspapis.com/profilecollects/v3/profiles/{profile_id}/games/j68d/itemCollectTypes/summer_25_coco_hunt_12_quest_reward/itemCollects/{guid}/claim"
+
+            # itemMetadata muss ein JSON-string sein (escaped JSON inside JSON)
+            nebula = {"NebulaData": {"Colors": color_norm}}
+            item_metadata_str = json.dumps(nebula)  # z.B. '{"NebulaData": {"Colors": "#FEFFFEFF"}}'
+            payload = {"itemMetadata": item_metadata_str}
+
+            headers = {
+                "Authorization": f"Bearer {self.token_info.get('access_token')}",
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+
+            self.after(0, self.write, f"[INFO] Claim request an {url} mit color {color_norm}", "yellow")
+            # API erwartet PUT (nicht POST) — deshalb PUT verwenden
+            res = self.scraper.put(url, headers=headers, json=payload, timeout=12)
+            res.raise_for_status()
+
+            data = res.json()
+            guid_resp = data.get("guid") or data.get("inventoryItemId")
+            pretty = json.dumps(data, indent=2, ensure_ascii=False)
+            self.after(0, self.write, f"[OK] Claim erfolgreich: guid={guid_resp}\n{pretty}", "green")
+        except Exception as e:
+            try:
+                txt = res.text
+            except Exception:
+                txt = "(no response body)"
+            self.after(0, self.write, f"[FEHLER] Claim fehlgeschlagen: {e} -- {txt}", "red")
+
+    def write(self, msg, color=None):
+        tag = None
+        if color:
+            try:
+                self.log.tag_config(color, foreground=color)
+                tag = color
+            except Exception:
+                tag = None
+        self.log.insert(tk.END, msg + "\n", tag)
+        self.log.see(tk.END)
+
+
+class LoginCalendarTab(ttk.Frame):
+    """
+    Login-Calendar (monatliche Login-Ziele) claimen:
+    - Manuell: Login + Claim Completed Goals
+    - Automatisch: Claim für Accounts aus Datei (1-7)
+    - API: https://eu.myown.com
+    """
+
+    API_HOST = "https://eu.mspapis.com"
+
+    def __init__(self, master):
+        super().__init__(master)
+        self.scrapers = {}      # username -> scraper
+        self.accounts = []      # token_info dicts
+        self.goals_by_profile = {}  # profile_id -> list of goals
+        self._build()
+
+    def _build(self):
+        pad = 6
+
+        # Manuelles Login
+        lf = ttk.LabelFrame(self, text="Manuell Login & Claim")
+        lf.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf, text="Benutzername").grid(row=0, column=0, sticky="w")
+        self.e_user = ttk.Entry(lf); self.e_user.grid(row=0, column=1, padx=pad)
+
+        ttk.Label(lf, text="Passwort").grid(row=1, column=0, sticky="w")
+        self.e_pw = ttk.Entry(lf, show="*"); self.e_pw.grid(row=1, column=1, padx=pad)
+
+        ttk.Label(lf, text="Land").grid(row=2, column=0, sticky="w")
+        self.e_cty = ttk.Entry(lf); self.e_cty.insert(0,"DE"); self.e_cty.grid(row=2, column=1, padx=pad)
+
+        ttk.Button(lf, text="Login & Claim Completed Goals", command=self.manual_login_claim).grid(row=3, columnspan=2, pady=pad)
+
+        # Automatisch aus Account-Liste
+        lf2 = ttk.LabelFrame(self, text="Automatisch Claim aus Liste")
+        lf2.pack(fill="x", padx=pad, pady=pad)
+
+        ttk.Label(lf2, text="Liste auswählen (1-7)").grid(row=0, column=0, sticky="w")
+        self.combo_list = ttk.Combobox(lf2, values=["1","2","3","4","5","6","7"], state="readonly", width=5)
+        self.combo_list.set("1")
+        self.combo_list.grid(row=0, column=1, padx=pad)
+
+        ttk.Button(lf2, text="Start Claim für Liste", command=self.start_list_claim).grid(row=1, columnspan=2, pady=pad)
+
+        # Combobox um Account anzuzeigen
+        ttk.Label(self, text="Aktiver Account").pack(anchor="w", padx=pad)
+        self.account_combo = ttk.Combobox(self, values=[], state="readonly")
+        self.account_combo.pack(fill="x", padx=pad, pady=(0,6))
+
+        # Goals Listbox
+        self.goal_listbox = tk.Listbox(self, selectmode=tk.EXTENDED, height=10)
+        self.goal_listbox.pack(fill="both", expand=False, padx=pad, pady=(0,6))
+
+        # Log
+        ttk.Label(self, text="Log").pack(anchor="w", padx=pad)
+        self.log = ScrolledText(self, height=12, bg="#000000", fg="white", insertbackground="white")
+        self.log.pack(fill="both", expand=True, padx=pad, pady=pad)
+
+    # ---------- Hilfsfunktionen ----------
+    def get_scraper(self, username):
+        return self.scrapers.get(username) or cloudscraper.create_scraper()
+
+    def assign_scraper(self, username):
+        scraper = cloudscraper.create_scraper()
+        self.scrapers[username] = scraper
+
+    def _update_account_combo(self):
+        names = [a.get("username") for a in self.accounts]
+        self.account_combo["values"] = names
+        if names and self.account_combo.get() == "":
+            self.account_combo.set(names[-1])
+
+    def write(self, msg, color=None):
+        try:
+            self.log.insert(tk.END, msg + "\n")
+            self.log.see(tk.END)
+        except Exception:
+            pass
+
+    # ---------- Manuelles Login + Claim ----------
+    def manual_login_claim(self):
+        u = self.e_user.get().strip()
+        p = self.e_pw.get().strip()
+        c = self.e_cty.get().strip().upper()
+        if not all([u,p,c]):
+            return messagebox.showwarning("Fehler","Alle Felder ausfüllen!")
+        threading.Thread(target=self._manual_worker, args=(u,p,c), daemon=True).start()
+
+    def _manual_worker(self, u, p, c):
+        try:
+            self.assign_scraper(u)
+            scraper = self.get_scraper(u)
+            token_info = login(u,p,c,proxies=scraper.proxies)
+            token_info["username"] = u
+            self.scrapers[u] = scraper
+            self.accounts.append(token_info)
+            self.after(0,self._update_account_combo)
+            self.after(0,self.write,f"[Login] {u} ({token_info.get('profile_id')})", "green")
+            # Fetch Goals
+            self._fetch_goals_worker(token_info)
+            # Claim Completed Goals
+            self._claim_all_worker(token_info)
+        except Exception as e:
+            self.after(0,self.write,f"[FEHLER Login] {u}: {e}", "red")
+            self.after(0, lambda: messagebox.showerror("Login fehlgeschlagen", str(e)))
+
+    # ---------- Account-Liste automatisch ----------
+    def start_list_claim(self):
+        file_id = self.combo_list.get()
+        suffix = '' if file_id=='1' else file_id
+        filename = f"acclist{suffix}.txt"
+        threading.Thread(target=self._list_claim_worker, args=(filename,), daemon=True).start()
+
+    def _list_claim_worker(self, filename):
+        try:
+            with open(filename,"r",encoding="utf-8") as f:
+                for line in f:
+                    parts = line.strip().split(":")
+                    if len(parts)<2: continue
+                    u, p = parts[0], parts[1]
+                    c = parts[2] if len(parts)>=3 else "DE"
+                    try:
+                        self.assign_scraper(u)
+                        scraper = self.get_scraper(u)
+                        token_info = login(u,p,c,proxies=scraper.proxies)
+                        token_info["username"] = u
+                        self.accounts.append(token_info)
+                        self.after(0,self._update_account_combo)
+                        self.after(0,self.write,f"[Login] {u} ({token_info.get('profile_id')})", "green")
+                        self._fetch_goals_worker(token_info)
+                        self._claim_all_worker(token_info)
+                    except Exception as e:
+                        self.after(0,self.write,f"[FEHLER] {u}: {e}", "red")
+                    time.sleep(0.5)
+        except Exception as e:
+            self.after(0,self.write,f"[FEHLER Datei] {filename}: {e}", "red")
+
+    # ---------- Fetch Goals ----------
+    def _fetch_goals_worker(self, token_info):
+        profile_id = token_info.get("profile_id") or token_info.get("profileId")
+        if not profile_id:
+            self.after(0,self.write,f"[FEHLER] profile_id fehlt für {token_info.get('username')}", "red")
+            return
+        enc_pid = urllib.parse.quote(profile_id,safe='')
+        url = f"{self.API_HOST}/logincalendar/v1/games/j68d/profiles/{enc_pid}/logincalendars/logincalendar-monthly"
+        headers = {"Authorization":f"Bearer {token_info.get('access_token')}","Accept":"application/json"}
+        scraper = self.get_scraper(token_info.get("username"))
+        try:
+            res = scraper.get(url,headers=headers,timeout=12)
+            res.raise_for_status()
+            data = res.json()
+            goals = data.get("goals",[])
+            self.goals_by_profile[profile_id] = goals
+            self.after(0,self.write,f"[OK] {token_info.get('username')}: {len(goals)} goals geladen","green")
+        except Exception as e:
+            self.after(0,self.write,f"[FEHLER Fetch] {token_info.get('username')}: {e}", "red")
+
+    # ---------- Claim Completed Goals ----------
+    def _claim_all_worker(self, token_info):
+        profile_id = token_info.get("profile_id") or token_info.get("profileId")
+        goals = self.goals_by_profile.get(profile_id,[])
+        completed_goals = [g for g in goals if g.get("status")=="Completed"]
+        for goal in completed_goals:
+            threading.Thread(target=self._claim_goal_worker,args=(token_info,profile_id,goal),daemon=True).start()
+            time.sleep(0.5)
+
+    def _claim_goal_worker(self, token_info, profile_id, goal):
+        goalId = goal.get("goalId")
+        if not goalId: return
+        enc_pid = urllib.parse.quote(profile_id,safe='')
+        url = f"{self.API_HOST}/logincalendar/v1/games/j68d/profiles/{enc_pid}/logincalendars/logincalendar-monthly/goals/{goalId}"
+        headers = {"Authorization":f"Bearer {token_info.get('access_token')}","Content-Type":"application/json","Accept":"application/json"}
+        scraper = self.get_scraper(token_info.get("username"))
+        attempts = 0
+        while attempts<3:
+            attempts+=1
+            try:
+                res = scraper.post(url,headers=headers,json={},timeout=12)
+                if res.status_code in (200,201,204):
+                    self.after(0,self.write,f"[OK] Claimed {goalId}","green")
+                    goal["status"]="Claimed"
+                    return
+                else:
+                    time.sleep(0.5)
+            except Exception as e:
+                self.after(0,self.write,f"[FEHLER Claim] {token_info.get('username')}: {goalId}: {e} (Versuch {attempts}/3)","red")
+                time.sleep(0.5)
+        self.after(0,self.write,f"[FEHLER] {token_info.get('username')}: {goalId} konnte nach 3 Versuchen nicht geclaimed werden","red")
+
+
+# -------------------- Main Window --------------------
+class MSP2Toolkit(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.iconbitmap(resource_path("rabbit.ico"))
+        setup_style(self)
+        self.title("NiveDev v2.5")
+        self.geometry("740x770")
+        # Logo laden und anzeigen
+        img = Image.open(resource_path("rabbit.jpg"))
+        img = img.resize((60, 60), Image.LANCZOS)
+        self.logo_img = ImageTk.PhotoImage(img)
+        ttk.Label(self, image=self.logo_img, anchor="center").pack(pady=(10, 0))
+
+        wrapper = ttk.Frame(self); wrapper.pack(fill="both", expand=True)
+        nb = ttk.Notebook(wrapper); nb.pack(pady=12)
+        #nb.add(LoveItTab(nb), text="❤️ LoveIt")
+        #nb.add(TokenRunnerTab(nb), text="🔑 Token")
+        nb.add(MoodTab(nb), text="Mood")
+        nb.add(GenderSwitchTab(nb), text="Gender")
+        nb.add(AutographTab(nb), text="Autos")
+        nb.add(GiftOpenerTab(nb), text="Dupe")
+        nb.add(DailyLogin(nb), text="DailyLogin")
+        nb.add(TeleportTab(nb), text="TP")
+        nb.add(SpecialMassSenderTab(nb), text="Stars")
+        nb.add(StarGreetingComboTab(nb), text="DFW")
+        nb.add(PasswordChangeTab(nb), text="PW")
+        #nb.add(GiftDoubleSenderTab(nb), text="TE")
+        nb.add(MonsterTab(nb), text="Monster")
+        #nb.add(EventClaimQuestTab(nb), text="EventClaim")
+        #nb.add(MultiGreetingTab(nb), text="AGS")
+        nb.add(PetColorRedeemTab(nb), text="CopyPet")
+        nb.add(LoginCalendarTab(nb), text="LoginItems")
+
+if __name__ == "__main__":
+    MSP2Toolkit().mainloop()
